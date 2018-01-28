@@ -40,7 +40,8 @@ int main( int argc, const char *argv[] )
     size_t idx = 0;
 
     for ( size_t idx = 0 ; idx < plain_text.size() ; ++idx ) {
-        cipher_text[idx] = ( ( plain_text[idx] + ( key[idx % key.size()] - 'a' ) - 'a' ) % 26 ) + 'a';
+        cipher_text[idx] = 
+            ( ( plain_text[idx] + ( key[idx % key.size()] - 'a' ) - 'a' ) % 26 ) + 'a';
     }
 
     std::cout << "cipher text is '" << cipher_text << "'" << std::endl;

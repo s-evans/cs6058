@@ -17,11 +17,11 @@
 #include <stdlib.h>
 #include <string>
 
-int main( int argc, const char *argv[] )
+int main( int argc, const char* argv[] )
 {
-    static const char* substitution_cipher = "EXAUNDKBMVORQCSFHYGWZLJITP";
+    static const char* cipher = "EXAUNDKBMVORQCSFHYGWZLJITP";
 
-    std::cout << "substitution cipher is '" << substitution_cipher << "'" << std::endl;
+    std::cout << "substitution cipher is '" << cipher << "'" << std::endl;
 
     static const std::string plain_text = "universityofcincinnati";
 
@@ -33,7 +33,7 @@ int main( int argc, const char *argv[] )
         plain_text.begin(),
         plain_text.end(),
         cipher_text.begin(),
-        [&]( auto const& v ){ return substitution_cipher[v - 'a']; }
+        [&]( auto const& v ){ return cipher[v - 'a']; }
     );
 
     std::cout << "cipher text is '" << cipher_text << "'" << std::endl;

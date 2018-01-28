@@ -15,25 +15,27 @@
 #include <stdlib.h>
 #include <string>
 
-int main( int argc, const char *argv[] )
+int main( int argc, const char* argv[] )
 {
     const std::string cipher_text = "JSSXFEPP";
 
-    std::cout << "brute forcing cipher text = '" << cipher_text << "' using shift cipher" << std::endl;
+    std::cout << "cipher text = '" << cipher_text << "'" << std::endl;
 
-    for ( unsigned char key = 0  ; key < 26 ; ++key ) {
-        std::string candidate_plain_text = cipher_text;
+    for ( unsigned char key = 0 ; key < 26 ; ++key ) {
+        std::string plain_text = cipher_text;
 
-        std::cout << "trying key = '" << (int)key << "'" << std::endl;
+        std::cout << "trying key = '" << ( int )key << "'" << std::endl;
 
         std::transform(
             cipher_text.begin(),
             cipher_text.end(),
-            candidate_plain_text.begin(),
-            [&]( auto const& cipher ){ return cipher - key; }
+            plain_text.begin(),
+            [&]( auto const & cipher ) {
+                return cipher - key;
+            }
         );
 
-        std::cout << "candidate plaintext = '" << candidate_plain_text << "'" << std::endl;
+        std::cout << "plaintext = '" << plain_text << "'" << std::endl;
 
         std::cout << std::endl;
     }
