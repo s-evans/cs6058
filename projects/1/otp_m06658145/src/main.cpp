@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-
 // Define parameters
 namespace PARAM
 {
@@ -229,11 +228,12 @@ int main( int argc, const char* argv[] )
         }
 
     } else {
+
         // no known operation was specified
         std::cerr << "ERROR: unknown operation '" << op << "' specified" << std::endl;
         print_help( argv[0] );
-
         return EXIT_FAILURE;
+
     }
 
     return EXIT_SUCCESS;
