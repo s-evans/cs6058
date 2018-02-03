@@ -141,6 +141,13 @@ int main( int argc, const char* argv[] )
             return EXIT_FAILURE;
         }
 
+        // verify sizes of ciphertext and key are the same
+        if ( ciphertext_file_data.second.size() != key_file_data.second.size() ) {
+            std::cerr << "ERROR: ciphertext and key file sizes do not match ( "
+                << ciphertext_file_data.second.size() << " != " << key_file_data.second.size() << " )\n";
+            return EXIT_FAILURE;
+        }
+
         std::vector<char> plaintext;
 
         // TODO: do decryption
