@@ -20,14 +20,25 @@ static void test_running_time( void )
     // allocate an array with an element for each test run
     std::vector<std::chrono::high_resolution_clock::duration> results( runs );
 
+    // generate a random key
+    const auto key = keygen( security_parameter_bytes );
+
+    // generate a random plaintext
+    const auto plaintext = keygen( security_parameter_bytes );
+
     // run the test repeatedly
     for ( unsigned int i = 0 ; i < runs ; ++i ) {
 
         // get the time point at the beginning of the test run
         const auto start_time = std::chrono::high_resolution_clock::now();
 
-        // generate the key
-        const auto key = keygen( security_parameter_bytes );
+        // allocate a buffer for the ciphertext
+        std::vector<unsigned char> ciphertext( plaintext.size() );
+
+        // combine the plaintext with the key to create the ciphertext
+        for ( size_t i = 0 ; i < ciphertext.size() ; ++i ) {
+            ciphertext[i] = plaintext[i] ^ key[i];
+        }
 
         // get the time point at the end of the test run
         const auto end_time = std::chrono::high_resolution_clock::now();
