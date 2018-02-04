@@ -38,7 +38,7 @@ static void test_frequency_distribution( void )
     // iterate over the buckets in the historgram
     for ( unsigned int i = 0 ; i < 8 ; ++i ) {
         // print byte value, count, probability, and histogram graphic
-        printf( " 0x%01X | 0x%04X | %-11.3f | %s\n", i, histogram[i], histogram[i] / (double) runs, std::string( histogram[i] / 10, '*' ).c_str() );
+        printf( " 0x%01X | 0x%04X | %-11.3f | %s\n", i, histogram[i], histogram[i] / (double) runs, std::string( histogram[i] / 12, '*' ).c_str() );
     }
 }
 
