@@ -1,8 +1,12 @@
-#include <stdlib.h>
-#include <iostream>
-#include <boost/lexical_cast.hpp>
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
+#include <boost/archive/iterators/base64_from_binary.hpp>
+#include <boost/archive/iterators/binary_from_base64.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
+#include <boost/lexical_cast.hpp>
 #include <fstream>
+#include <iostream>
+#include <stdlib.h>
 #include <string>
 #include <vector>
 
@@ -94,6 +98,18 @@ static std::pair<bool, std::vector<char>> read_file ( const char* path )
     return std::make_pair( true, std::move( data ) );
 }
 
+static std::string encode( const std::vector<char>& val )
+{
+    // define a base 64 iterator
+    using b64_iterator = boost::archive::iterators::base64_from_binary< boost::archive::iterators::transform_width<std::vector<char>::const_iterator, 6, 8>>;
+
+    // create a base64 encoded string from input binary data
+    auto tmp = std::string( b64_iterator( std::begin( val ) ), b64_iterator( std::end( val ) ) );
+
+    // append trailing equals signs for leftover bits
+    return tmp.append( ( 3 - val.size() % 3 ) % 3, '=' );
+}
+
 int main( int argc, const char* argv[] )
 {
     // check that the operation is specified
@@ -121,8 +137,8 @@ int main( int argc, const char* argv[] )
 
         // get string pointers for arguments
         const char* const key_file = argv[2];
-        const char* const plaintext_file = argv[3];
-        const char* const ciphertext_file = argv[4];
+        const char* const ciphertext_file = argv[3];
+        const char* const plaintext_file = argv[4];
 
         // read key data from file
         const auto key_file_data = read_file( key_file );
@@ -132,6 +148,9 @@ int main( int argc, const char* argv[] )
             return EXIT_FAILURE;
         }
 
+        // create an alias for the key data
+        const auto& key = key_file_data.second;
+
         // read ciphertext data from file
         const auto ciphertext_file_data = read_file( ciphertext_file );
 
@@ -140,18 +159,25 @@ int main( int argc, const char* argv[] )
             return EXIT_FAILURE;
         }
 
+        // create an alias for the ciphertext data
+        const auto& ciphertext = ciphertext_file_data.second;
+
         // verify sizes of ciphertext and key are the same
-        if ( ciphertext_file_data.second.size() != key_file_data.second.size() ) {
+        if ( ciphertext.size() != key.size() ) {
             std::cerr << "ERROR: ciphertext and key file sizes do not match ( "
-                << ciphertext_file_data.second.size() << " != " << key_file_data.second.size() << " )\n";
+                << ciphertext.size() << " != " << key.size() << " )\n";
             return EXIT_FAILURE;
         }
 
-        std::vector<char> plaintext;
+        // copy the ciphertext data into the plaintext array
+        std::vector<char> plaintext( ciphertext );
 
-        // TODO: do decryption
+        // combine the ciphertext with the key to perform decryption and create the plaintext
+        for ( size_t i = 0 ; i < plaintext.size() ; ++i ) {
+            plaintext[i] ^= key[i];
+        }
 
-        // write to output file
+        // write plaintext data to output file
         if ( !write_file( plaintext_file, plaintext ) ) {
             return EXIT_FAILURE;
         }
@@ -167,8 +193,8 @@ int main( int argc, const char* argv[] )
 
         // get string pointers for arguments
         const char* const key_file = argv[2];
-        const char* const ciphertext_file = argv[3];
-        const char* const plaintext_file = argv[4];
+        const char* const plaintext_file = argv[3];
+        const char* const ciphertext_file = argv[4];
 
         // read key data from file
         const auto key_file_data = read_file( key_file );
@@ -178,6 +204,9 @@ int main( int argc, const char* argv[] )
             return EXIT_FAILURE;
         }
 
+        // create an alias for the key data
+        const auto& key = key_file_data.second;
+
         // read plaintext data from file
         const auto plaintext_file_data = read_file( plaintext_file );
 
@@ -186,18 +215,25 @@ int main( int argc, const char* argv[] )
             return EXIT_FAILURE;
         }
 
+        // create an alias for the plaintext data
+        const auto& plaintext = plaintext_file_data.second;
+
         // verify sizes of plaintext and key match
-        if ( plaintext_file_data.second.size() != key_file_data.second.size() ) {
+        if ( plaintext.size() != key.size() ) {
             std::cerr << "ERROR: plaintext and key file sizes do not match ( "
-                << plaintext_file_data.second.size() << " != " << key_file_data.second.size() << " )\n";
+                << plaintext.size() << " != " << key.size() << " )\n";
             return EXIT_FAILURE;
         }
 
-        std::vector<char> ciphertext;
+        // copy the plaintext into the ciphertext
+        std::vector<char> ciphertext( plaintext );
 
-        // TODO: do encryption
+        // combine the plaintext with the key to create the ciphertext
+        for ( size_t i = 0 ; i < ciphertext.size() ; ++i ) {
+            ciphertext[i] ^= key[i];
+        }
 
-        // write to output file
+        // write ciphertext to output file
         if ( !write_file( ciphertext_file, ciphertext ) ) {
             return EXIT_FAILURE;
         }
@@ -215,14 +251,27 @@ int main( int argc, const char* argv[] )
         const char* const key_size = argv[2];
         const char* const key_file = argv[3];
 
-        // convert arguments
+        // convert argument from string to an unsigned integer
         const unsigned int key_size_int = boost::lexical_cast<unsigned int>( key_size );
 
-        std::vector<char> key_data( key_size_int );
+        // verify user requested key length
+        if ( key_size_int < 1 || key_size_int > 128 ) {
+            std::cerr << "ERROR: invalid key size specified\n";
+            return EXIT_FAILURE;
+        }
+
+        // get the size of the key in bytes
+        const unsigned int key_bytes = ( key_size_int + 8 - 1 ) / 8;
+
+        // allocate memory for key data
+        std::vector<char> key_data( key_bytes );
 
         // TODO: do key generation
 
-        // write to output file
+        // convert binary key data to base64 and print to the terminal
+        std::cout << "key = " << encode( key_data ) << "\n";
+
+        // write key data to output file
         if ( !write_file( key_file, key_data ) ) {
             return EXIT_FAILURE;
         }
