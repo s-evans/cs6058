@@ -40,10 +40,10 @@ static void print_help( const char* const exe )
     std::cerr << "\t" << exe << " keygen <key_size> <key_file_path>\n";
 }
 
-static bool write_file ( const char* path, std::vector<char> const& data )
+static bool write_file ( const char* path, std::vector<unsigned char> const& data )
 {
     // open file
-    std::ofstream os( path, std::ofstream::out | std::ofstream::binary );
+    std::basic_ofstream<unsigned char> os( path, std::ofstream::out | std::ofstream::binary );
 
     // verify file was opened successfully
     if ( !os.is_open() ) {
@@ -66,15 +66,15 @@ static bool write_file ( const char* path, std::vector<char> const& data )
     return true;
 }
 
-static std::pair<bool, std::vector<char>> read_file ( const char* path )
+static std::pair<bool, std::vector<unsigned char>> read_file ( const char* path )
 {
     // open file
-    std::ifstream is( path, std::ifstream::in | std::ifstream::binary );
+    std::basic_ifstream<unsigned char> is( path, std::ifstream::in | std::ifstream::binary );
 
     // verify file was opened successfully
     if ( !is.is_open() ) {
         std::cerr << "ERROR: failed to open file '" << path << "'\n";
-        return std::make_pair( false, std::vector<char>{} );
+        return std::make_pair( false, std::vector<unsigned char>{} );
     }
 
     // get size of file
@@ -83,13 +83,13 @@ static std::pair<bool, std::vector<char>> read_file ( const char* path )
     is.seekg( 0, is.beg );
 
     // read from file
-    std::vector<char> data( file_size );
+    std::vector<unsigned char> data( file_size );
     is.read( data.data(), file_size );
 
     // verify read was successful
     if ( !is ) {
         std::cerr << "ERROR: failed to read from file '" << path << "'\n";
-        return std::make_pair( false, std::vector<char>{} );
+        return std::make_pair( false, std::vector<unsigned char>{} );
     }
 
     // close the file
@@ -98,13 +98,13 @@ static std::pair<bool, std::vector<char>> read_file ( const char* path )
     return std::make_pair( true, std::move( data ) );
 }
 
-static std::string encode( const std::vector<char>& val )
+static std::string encode( const std::vector<unsigned char>& val )
 {
     // define a base 64 iterator type
     using b64_iterator =
         boost::archive::iterators::base64_from_binary<
             boost::archive::iterators::transform_width<
-                std::vector<char>::const_iterator, 6, 8>>;
+                std::vector<unsigned char>::const_iterator, 6, 8>>;
 
     // create a base64 encoded string from input binary data
     auto tmp = std::string( b64_iterator( std::begin( val ) ), b64_iterator( std::end( val ) ) );
@@ -173,7 +173,7 @@ int main( int argc, const char* argv[] )
         }
 
         // copy the ciphertext data into the plaintext array
-        std::vector<char> plaintext( ciphertext );
+        std::vector<unsigned char> plaintext( ciphertext );
 
         // combine the ciphertext with the key to perform decryption and create the plaintext
         for ( size_t i = 0 ; i < plaintext.size() ; ++i ) {
@@ -229,7 +229,7 @@ int main( int argc, const char* argv[] )
         }
 
         // copy the plaintext into the ciphertext
-        std::vector<char> ciphertext( plaintext );
+        std::vector<unsigned char> ciphertext( plaintext );
 
         // combine the plaintext with the key to create the ciphertext
         for ( size_t i = 0 ; i < ciphertext.size() ; ++i ) {

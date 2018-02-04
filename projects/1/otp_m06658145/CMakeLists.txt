@@ -7,7 +7,12 @@ add_executable(otp
     src/keygen.cpp
 )
 
-add_executable(test_keygen
+add_executable(test_frequency
     src/keygen.cpp
-    src/test_keygen.cpp
+    src/test_frequency.cpp
+)
+
+add_executable(test_running_time
+    src/keygen.cpp
+    src/test_running_time.cpp
 )

@@ -3,6 +3,6 @@
 
 #include <vector>
 
-std::vector<char> keygen( unsigned int size );
+std::vector<unsigned char> keygen( unsigned int size );
 
 #endif // KEYGEN_H

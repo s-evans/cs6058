@@ -16,7 +16,8 @@ $ ./otp keygen <key_size> <key_file_path>
 
 # TESTING #
 
-The following command is used to run the keygen test tool.
+The following commands are used to run the keygen tests.
 
-$ ./test_keygen
+$ ./test_running_time
+$ ./test_frequency
 
