@@ -26,6 +26,11 @@ static const constexpr char* KEYGEN  = "keygen";
 
 } /* namespace PARAM */
 
+/**
+ * @brief Print the help text for the program
+ *
+ * @param exe name of the binary
+ */
 static void print_help( const char* const exe )
 {
     std::cerr << "\n";
@@ -40,6 +45,14 @@ static void print_help( const char* const exe )
     std::cerr << "\t" << exe << " keygen <key_size> <key_file_path>\n";
 }
 
+/**
+ * @brief write an array of binary data to file
+ *
+ * @param path path to file to be written to
+ * @param data array of binary data to be written
+ *
+ * @return true if successful; false otherwise;
+ */
 static bool write_file ( const char* path, std::vector<unsigned char> const& data )
 {
     // open file
@@ -66,6 +79,13 @@ static bool write_file ( const char* path, std::vector<unsigned char> const& dat
     return true;
 }
 
+/**
+ * @brief read entire binary file
+ *
+ * @param path path of file to be read
+ *
+ * @return true and vector of bytes if successful; false otherwise;
+ */
 static std::pair<bool, std::vector<unsigned char>> read_file ( const char* path )
 {
     // open file
@@ -98,6 +118,13 @@ static std::pair<bool, std::vector<unsigned char>> read_file ( const char* path 
     return std::make_pair( true, std::move( data ) );
 }
 
+/**
+ * @brief Base64 encode an array of bytes
+ *
+ * @param val input bytes
+ *
+ * @return base64 encoded output string
+ */
 static std::string encode( const std::vector<unsigned char>& val )
 {
     // define a base 64 iterator type
