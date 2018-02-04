@@ -14,7 +14,7 @@ static void test_frequency_distribution( void )
     const unsigned int runs = 5000;
 
     // allocate a histogram for byte values
-    unsigned int histogram[256] = {0};
+    unsigned int histogram[8] = {0};
 
     // run the test repeatedly
     for ( unsigned int i = 0 ; i < runs ; ++i ) {
@@ -22,19 +22,23 @@ static void test_frequency_distribution( void )
         // generate the key
         const auto key = keygen( security_parameter_bytes );
 
-        // iterate over the bytes in the key
-        for ( const auto byte : key ) {
-            // add to the appropriate bucket in the histogram
-            ++histogram[byte];
-        }
+        // add to the appropriate bucket in the histogram
+        ++histogram[key[0] & 0x7];
     }
 
+    std::cout << "key distribution test parameters\n";
+    std::cout << " security parameter = " << security_parameter << "\n";
+    std::cout << " iterations = " << runs << "\n";
+    std::cout << "\n";
+
     std::cout << "key distribution test result data\n";
+    std::cout << " key | count  | probability | histogram\n";
+    std::cout << " --- | ------ | ----------- | ---------\n";
 
     // iterate over the buckets in the historgram
-    for ( unsigned int i = 0 ; i < 256 ; ++i ) {
-        // print byte value, count, and histogram graphic
-        printf( "0x%02X = 0x%04X | %s\n", i, histogram[i], std::string( histogram[i], '*' ).c_str() );
+    for ( unsigned int i = 0 ; i < 8 ; ++i ) {
+        // print byte value, count, probability, and histogram graphic
+        printf( " 0x%01X | 0x%04X | %-11.3f | %s\n", i, histogram[i], histogram[i] / (double) runs, std::string( histogram[i] / 10, '*' ).c_str() );
     }
 }
 
