@@ -6,6 +6,7 @@
 #include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <stdlib.h>
 #include <string>
 #include <vector>
@@ -266,7 +267,14 @@ int main( int argc, const char* argv[] )
         // allocate memory for key data
         std::vector<char> key_data( key_bytes );
 
-        // TODO: do key generation
+        // get a random data source device
+        std::random_device rd;
+
+        // specify distribution to be used
+        std::uniform_int_distribution<char> dist;
+
+        // create the random key using the random source device and distribution
+        std::generate( key_data.begin(), key_data.end(), [&](){ return dist( rd ); } );
 
         // convert binary key data to base64 and print to the terminal
         std::cout << "key = " << encode( key_data ) << "\n";
