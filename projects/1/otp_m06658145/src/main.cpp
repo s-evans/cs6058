@@ -1,15 +1,14 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/binary_from_base64.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
 #include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <iostream>
-#include <random>
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include "keygen.h"
 
 // Define parameters
 namespace PARAM
@@ -101,8 +100,11 @@ static std::pair<bool, std::vector<char>> read_file ( const char* path )
 
 static std::string encode( const std::vector<char>& val )
 {
-    // define a base 64 iterator
-    using b64_iterator = boost::archive::iterators::base64_from_binary< boost::archive::iterators::transform_width<std::vector<char>::const_iterator, 6, 8>>;
+    // define a base 64 iterator type
+    using b64_iterator =
+        boost::archive::iterators::base64_from_binary<
+            boost::archive::iterators::transform_width<
+                std::vector<char>::const_iterator, 6, 8>>;
 
     // create a base64 encoded string from input binary data
     auto tmp = std::string( b64_iterator( std::begin( val ) ), b64_iterator( std::end( val ) ) );
@@ -264,17 +266,8 @@ int main( int argc, const char* argv[] )
         // get the size of the key in bytes
         const unsigned int key_bytes = ( key_size_int + 8 - 1 ) / 8;
 
-        // allocate memory for key data
-        std::vector<char> key_data( key_bytes );
-
-        // get a random data source device
-        std::random_device rd;
-
-        // specify distribution to be used
-        std::uniform_int_distribution<char> dist;
-
-        // create the random key using the random source device and distribution
-        std::generate( key_data.begin(), key_data.end(), [&](){ return dist( rd ); } );
+        // generate a key
+        const auto key_data { keygen( key_bytes ) };
 
         // convert binary key data to base64 and print to the terminal
         std::cout << "key = " << encode( key_data ) << "\n";
