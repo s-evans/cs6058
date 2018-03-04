@@ -8,14 +8,12 @@ add_executable(aes
     src/aes.cpp
 )
 
-add_executable(test_frequency
-    src/aes.cpp
-    src/keygen.cpp
-    src/test_frequency.cpp
-)
+target_link_libraries(aes PRIVATE ssl)
 
 add_executable(test_running_time
     src/aes.cpp
     src/keygen.cpp
     src/test_running_time.cpp
 )
+
+target_link_libraries(test_running_time PRIVATE ssl)
