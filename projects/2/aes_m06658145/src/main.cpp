@@ -1,48 +1,122 @@
+#include "aes.h"
+#include "keygen.h"
 #include <algorithm>
-#include <boost/algorithm/string.hpp>
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
 #include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <iostream>
 #include <stdlib.h>
 #include <string>
 #include <vector>
-#include "keygen.h"
 
 // Define parameters
 namespace PARAM
 {
 
+static std::string const HELP_LONG  = "--help";
+static std::string const HELP_SHORT = "-h";
+
 // Define supported operations
 namespace OP
 {
 
-static const constexpr char* ENCRYPT = "enc";
-static const constexpr char* DECRYPT = "dec";
-static const constexpr char* KEYGEN  = "keygen";
+static std::string const ENCRYPT = "enc";
+static std::string const DECRYPT = "dec";
+static std::string const KEYGEN  = "keygen";
 
 } /* namespace OP */
 
+// Define supported crypto modes
+namespace MODE
+{
+
+static std::string const CBC = "cbc";
+static std::string const ECB = "ecb";
+
+} /* namespace MODE */
+
 } /* namespace PARAM */
+
+// Define constants for supported modes
+enum class MODE {
+    CBC,
+    ECB
+};
+
+// Define constants for supported operations
+enum class OP {
+    KEYGEN,
+    ENCRYPT,
+    DECRYPT
+};
+
+/**
+ * @brief convert from string to operation constant
+ *
+ * @param op operation in string form
+ *
+ * @return operation in enum form
+ */
+static std::pair<bool, OP> get_op( char const* const op )
+{
+    if ( PARAM::OP::DECRYPT.compare( op ) == 0 ) {
+        return std::make_pair( true, OP::DECRYPT );
+    }
+
+    if ( PARAM::OP::ENCRYPT.compare( op ) == 0 ) {
+        return std::make_pair( true, OP::ENCRYPT );
+    }
+
+    if ( PARAM::OP::KEYGEN.compare( op ) == 0 ) {
+        return std::make_pair( true, OP::KEYGEN );
+    }
+
+    std::cerr << "ERROR: unknown operation '" << op << "' specified" << std::endl;
+
+    return std::make_pair( false, OP::KEYGEN );
+}
+
+/**
+ * @brief convert from string to mode constant
+ *
+ * @param mode mode in string form
+ *
+ * @return mode in enum form
+ */
+static std::pair<bool, MODE> get_mode( char const* const mode )
+{
+    if ( PARAM::MODE::ECB.compare( mode ) == 0 ) {
+        return std::make_pair( true, MODE::ECB );
+    }
+
+    if ( PARAM::MODE::CBC.compare( mode ) == 0 ) {
+        return std::make_pair( true, MODE::CBC );
+    }
+
+    std::cerr << "ERROR: invalid mode string '" << mode << "' specified" << std::endl;
+
+    return std::make_pair( false, MODE::CBC );
+}
 
 /**
  * @brief Print the help text for the program
  *
  * @param exe name of the binary
  */
-static void print_help( const char* const exe )
+static void print_help( char const* const exe )
 {
     std::cerr << "\n";
     std::cerr << "Overview:\n";
-    std::cerr << "\tperforms key generation, encryption, and decryption using one time pad encryption\n";
+    std::cerr << "\tperforms 256-bit AES key generation, encryption, and decryption\n";
     std::cerr << "\n";
 
     std::cerr << "Synopsis:\n";
     std::cerr << "\t" << exe << " (-h|--help)\n";
-    std::cerr << "\t" << exe << " enc <key_file_path> <plaintext_file_path> <ciphertext_file_path>\n";
-    std::cerr << "\t" << exe << " dec <key_file_path> <ciphertext_file_path> <plaintext_file_path>\n";
+    std::cerr << "\t" << exe << " enc ecb <key_file_path> <plaintext_file_path> <ciphertext_file_path>\n";
+    std::cerr << "\t" << exe << " dec ecb <key_file_path> <ciphertext_file_path> <plaintext_file_path>\n";
+    std::cerr << "\t" << exe << " enc cbc <key_file_path> <plaintext_file_path> <ciphertext_file_path>\n";
+    std::cerr << "\t" << exe << " dec cbc <key_file_path> <ciphertext_file_path> <plaintext_file_path>\n";
     std::cerr << "\t" << exe << " keygen <key_size> <key_file_path>\n";
+    std::cerr << std::flush;
 }
 
 /**
@@ -53,14 +127,14 @@ static void print_help( const char* const exe )
  *
  * @return true if successful; false otherwise;
  */
-static bool write_file ( const char* path, std::vector<unsigned char> const& data )
+static bool write_file( const char* path, std::vector<unsigned char> const& data )
 {
     // open file
     std::basic_ofstream<unsigned char> os( path, std::ofstream::out | std::ofstream::binary );
 
     // verify file was opened successfully
     if ( !os.is_open() ) {
-        std::cerr << "ERROR: failed to open file '" << path << "'\n";
+        std::cerr << "ERROR: failed to open file '" << path << "'" << std::endl;
         return false;
     }
 
@@ -69,7 +143,7 @@ static bool write_file ( const char* path, std::vector<unsigned char> const& dat
 
     // verify write was successful
     if ( !os ) {
-        std::cerr << "ERROR: failed to write to file '" << path << "'\n";
+        std::cerr << "ERROR: failed to write to file '" << path << "'" << std::endl;
         return false;
     }
 
@@ -86,20 +160,20 @@ static bool write_file ( const char* path, std::vector<unsigned char> const& dat
  *
  * @return true and vector of bytes if successful; false otherwise;
  */
-static std::pair<bool, std::vector<unsigned char>> read_file ( const char* path )
+static std::pair<bool, std::vector<unsigned char>> read_file( char const* path )
 {
     // open file
     std::basic_ifstream<unsigned char> is( path, std::ifstream::in | std::ifstream::binary );
 
     // verify file was opened successfully
     if ( !is.is_open() ) {
-        std::cerr << "ERROR: failed to open file '" << path << "'\n";
-        return std::make_pair( false, std::vector<unsigned char>{} );
+        std::cerr << "ERROR: failed to open file '" << path << "'" << std::endl;
+        return std::make_pair( false, std::vector<unsigned char> {} );
     }
 
     // get size of file
     is.seekg( 0, is.end );
-    const size_t file_size = is.tellg();
+    size_t const file_size = is.tellg();
     is.seekg( 0, is.beg );
 
     // read from file
@@ -108,8 +182,8 @@ static std::pair<bool, std::vector<unsigned char>> read_file ( const char* path 
 
     // verify read was successful
     if ( !is ) {
-        std::cerr << "ERROR: failed to read from file '" << path << "'\n";
-        return std::make_pair( false, std::vector<unsigned char>{} );
+        std::cerr << "ERROR: failed to read from file '" << path << "'" << std::endl;
+        return std::make_pair( false, std::vector<unsigned char> {} );
     }
 
     // close the file
@@ -118,60 +192,53 @@ static std::pair<bool, std::vector<unsigned char>> read_file ( const char* path 
     return std::make_pair( true, std::move( data ) );
 }
 
-/**
- * @brief Base64 encode an array of bytes
- *
- * @param val input bytes
- *
- * @return base64 encoded output string
- */
-static std::string encode( const std::vector<unsigned char>& val )
+int main( int argc, char const* argv[] )
 {
-    // define a base 64 iterator type
-    using b64_iterator =
-        boost::archive::iterators::base64_from_binary<
-            boost::archive::iterators::transform_width<
-                std::vector<unsigned char>::const_iterator, 6, 8>>;
-
-    // create a base64 encoded string from input binary data
-    auto tmp = std::string( b64_iterator( std::begin( val ) ), b64_iterator( std::end( val ) ) );
-
-    // append trailing equals signs for leftover bits
-    return tmp.append( ( 3 - val.size() % 3 ) % 3, '=' );
-}
-
-int main( int argc, const char* argv[] )
-{
-    // check that the operation is specified
     if ( argc < 2 ) {
         std::cerr << "ERROR: insufficient argument count" << std::endl;
         print_help( argv[0] );
         return EXIT_FAILURE;
     }
 
-    // get the operation
-    std::string const op = argv[1];
+    char const* const op = argv[1];
 
-    if ( op.compare( "--help" ) == 0 || op.compare( "-h" ) == 0 ) {
-
+    if ( PARAM::HELP_LONG.compare( op ) == 0 || PARAM::HELP_SHORT.compare( op ) == 0 ) {
         print_help( argv[0] );
+        return EXIT_SUCCESS;
+    }
 
-    } else if ( op.compare( PARAM::OP::DECRYPT ) == 0 ) {
+    auto const operation = get_op( op );
+
+    if ( !operation.first ) {
+        print_help( argv[0] );
+        return EXIT_FAILURE;
+    }
+
+    switch ( operation.second ) {
+
+    case OP::DECRYPT: {
 
         // verify argument count
-        if ( argc != 5 ) {
+        if ( argc != 6 ) {
             std::cerr << "ERROR: invalid argument count" << std::endl;
             print_help( argv[0] );
             return EXIT_FAILURE;
         }
 
         // get string pointers for arguments
-        const char* const key_file = argv[2];
-        const char* const ciphertext_file = argv[3];
-        const char* const plaintext_file = argv[4];
+        char const* const mode_string     = argv[2];
+        char const* const key_file        = argv[3];
+        char const* const ciphertext_file = argv[4];
+        char const* const plaintext_file  = argv[5];
+
+        auto const mode = get_mode( mode_string );
+
+        if ( !mode.first ) {
+            return EXIT_FAILURE;
+        }
 
         // read key data from file
-        const auto key_file_data = read_file( key_file );
+        auto const key_file_data = read_file( key_file );
 
         // verify read was successful
         if ( !key_file_data.first ) {
@@ -179,10 +246,10 @@ int main( int argc, const char* argv[] )
         }
 
         // create an alias for the key data
-        const auto& key = key_file_data.second;
+        auto const& key = key_file_data.second;
 
         // read ciphertext data from file
-        const auto ciphertext_file_data = read_file( ciphertext_file );
+        auto const ciphertext_file_data = read_file( ciphertext_file );
 
         // verify read was successful
         if ( !ciphertext_file_data.first ) {
@@ -190,21 +257,23 @@ int main( int argc, const char* argv[] )
         }
 
         // create an alias for the ciphertext data
-        const auto& ciphertext = ciphertext_file_data.second;
+        auto const& ciphertext = ciphertext_file_data.second;
 
-        // verify sizes of ciphertext and key are the same
-        if ( ciphertext.size() != key.size() ) {
-            std::cerr << "ERROR: ciphertext and key file sizes do not match ( "
-                << ciphertext.size() << " != " << key.size() << " )\n";
-            return EXIT_FAILURE;
-        }
-
-        // copy the ciphertext data into the plaintext array
+        // TODO: crypto
         std::vector<unsigned char> plaintext( ciphertext );
 
-        // combine the ciphertext with the key to perform decryption and create the plaintext
-        for ( size_t i = 0 ; i < plaintext.size() ; ++i ) {
-            plaintext[i] ^= key[i];
+        switch ( mode.second ) {
+
+        case MODE::CBC:
+            break;
+
+        case MODE::ECB:
+            break;
+
+        default:
+            std::cerr << "ERROR: unknown mode type value (" << (int)mode.second << ")" << std::endl;
+            return EXIT_FAILURE;
+
         }
 
         // write plaintext data to output file
@@ -212,22 +281,32 @@ int main( int argc, const char* argv[] )
             return EXIT_FAILURE;
         }
 
-    } else if ( op.compare( PARAM::OP::ENCRYPT ) == 0 ) {
+        break;
+    }
+
+    case OP::ENCRYPT: {
 
         // verify argument count
-        if ( argc != 5 ) {
+        if ( argc != 6 ) {
             std::cerr << "ERROR: invalid argument count" << std::endl;
             print_help( argv[0] );
             return EXIT_FAILURE;
         }
 
         // get string pointers for arguments
-        const char* const key_file = argv[2];
-        const char* const plaintext_file = argv[3];
-        const char* const ciphertext_file = argv[4];
+        char const* const mode_string     = argv[2];
+        char const* const key_file        = argv[3];
+        char const* const plaintext_file  = argv[4];
+        char const* const ciphertext_file = argv[5];
+
+        auto const mode = get_mode( mode_string );
+
+        if ( !mode.first ) {
+            return EXIT_FAILURE;
+        }
 
         // read key data from file
-        const auto key_file_data = read_file( key_file );
+        auto const key_file_data = read_file( key_file );
 
         // verify read was successful
         if ( !key_file_data.first ) {
@@ -235,10 +314,10 @@ int main( int argc, const char* argv[] )
         }
 
         // create an alias for the key data
-        const auto& key = key_file_data.second;
+        auto const& key = key_file_data.second;
 
         // read plaintext data from file
-        const auto plaintext_file_data = read_file( plaintext_file );
+        auto const plaintext_file_data = read_file( plaintext_file );
 
         // verify read was successful
         if ( !plaintext_file_data.first ) {
@@ -246,21 +325,23 @@ int main( int argc, const char* argv[] )
         }
 
         // create an alias for the plaintext data
-        const auto& plaintext = plaintext_file_data.second;
+        auto const& plaintext = plaintext_file_data.second;
 
-        // verify sizes of plaintext and key match
-        if ( plaintext.size() != key.size() ) {
-            std::cerr << "ERROR: plaintext and key file sizes do not match ( "
-                << plaintext.size() << " != " << key.size() << " )\n";
-            return EXIT_FAILURE;
-        }
-
-        // copy the plaintext into the ciphertext
+        // TODO: crypto
         std::vector<unsigned char> ciphertext( plaintext );
 
-        // combine the plaintext with the key to create the ciphertext
-        for ( size_t i = 0 ; i < ciphertext.size() ; ++i ) {
-            ciphertext[i] ^= key[i];
+        switch ( mode.second ) {
+
+        case MODE::CBC:
+            break;
+
+        case MODE::ECB:
+            break;
+
+        default:
+            std::cerr << "ERROR: unknown mode type value (" << (int)mode.second << ")" << std::endl;
+            return EXIT_FAILURE;
+
         }
 
         // write ciphertext to output file
@@ -268,7 +349,10 @@ int main( int argc, const char* argv[] )
             return EXIT_FAILURE;
         }
 
-    } else if ( op.compare( PARAM::OP::KEYGEN ) == 0 ) {
+        break;
+    }
+
+    case OP::KEYGEN: {
 
         // verify argument count
         if ( argc != 4 ) {
@@ -278,38 +362,36 @@ int main( int argc, const char* argv[] )
         }
 
         // get string pointers for arguments
-        const char* const key_size = argv[2];
-        const char* const key_file = argv[3];
+        char const* const key_size = argv[2];
+        char const* const key_file = argv[3];
 
         // convert argument from string to an unsigned integer
-        const unsigned int key_size_int = boost::lexical_cast<unsigned int>( key_size );
+        unsigned int const key_size_int = boost::lexical_cast<unsigned int>( key_size );
 
         // verify user requested key length
         if ( key_size_int < 1 || key_size_int > 128 ) {
-            std::cerr << "ERROR: invalid key size specified\n";
+            std::cerr << "ERROR: invalid key size specified" << std::endl;
             return EXIT_FAILURE;
         }
 
         // get the size of the key in bytes
-        const unsigned int key_bytes = ( key_size_int + 8 - 1 ) / 8;
+        unsigned int const key_bytes = ( key_size_int + 8 - 1 ) / 8;
 
         // generate a key
-        const auto key_data { keygen( key_bytes ) };
-
-        // convert binary key data to base64 and print to the terminal
-        std::cout << "key = " << encode( key_data ) << "\n";
+        auto const key_data { keygen( key_bytes ) };
 
         // write key data to output file
         if ( !write_file( key_file, key_data ) ) {
             return EXIT_FAILURE;
         }
 
-    } else {
+        break;
+    }
 
-        // no known operation was specified
-        std::cerr << "ERROR: unknown operation '" << op << "' specified" << std::endl;
-        print_help( argv[0] );
+    default: {
+        std::cerr << "ERROR: Unknown operation type value (" << (int)operation.second << ")" << std::endl;
         return EXIT_FAILURE;
+    }
 
     }
 
