@@ -97,6 +97,22 @@ static std::pair<bool, MODE> get_mode( char const* const mode )
     return std::make_pair( false, MODE::CBC );
 }
 
+static EVP_CIPHER const* get_evp_mode( MODE mode )
+{
+    switch ( mode ) {
+
+        case MODE::CBC:
+            return EVP_aes_256_cbc();
+
+        case MODE::ECB:
+            return EVP_aes_256_ecb();
+
+        default:
+            std::cerr << "ERROR: unknown mode type value (" << ( int )mode << ")" << std::endl;
+            return NULL;
+    }
+}
+
 /**
  * @brief Print the help text for the program
  *
@@ -259,22 +275,11 @@ int main( int argc, char const* argv[] )
         // create an alias for the ciphertext data
         auto const& ciphertext = ciphertext_file_data.second;
 
-        // TODO: crypto
-        std::vector<unsigned char> plaintext( ciphertext );
+        // TODO: salt?
+        // TODO: iv?
+        aes aes_ctx( get_evp_mode( mode.second ), key.data(), key.size(), (unsigned char*) "foo" );
 
-        switch ( mode.second ) {
-
-        case MODE::CBC:
-            break;
-
-        case MODE::ECB:
-            break;
-
-        default:
-            std::cerr << "ERROR: unknown mode type value (" << (int)mode.second << ")" << std::endl;
-            return EXIT_FAILURE;
-
-        }
+        std::vector<unsigned char> plaintext( aes_ctx.decrypt( ciphertext.data(), ciphertext.size() ) );
 
         // write plaintext data to output file
         if ( !write_file( plaintext_file, plaintext ) ) {
@@ -327,22 +332,10 @@ int main( int argc, char const* argv[] )
         // create an alias for the plaintext data
         auto const& plaintext = plaintext_file_data.second;
 
-        // TODO: crypto
-        std::vector<unsigned char> ciphertext( plaintext );
-
-        switch ( mode.second ) {
-
-        case MODE::CBC:
-            break;
-
-        case MODE::ECB:
-            break;
-
-        default:
-            std::cerr << "ERROR: unknown mode type value (" << (int)mode.second << ")" << std::endl;
-            return EXIT_FAILURE;
-
-        }
+        // TODO: salt?
+        // TODO: IV
+        aes aes_ctx( get_evp_mode( mode.second ), key.data(), key.size(), (unsigned char*) "foo" );
+        std::vector<unsigned char> ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
 
         // write ciphertext to output file
         if ( !write_file( ciphertext_file, ciphertext ) ) {
@@ -367,6 +360,8 @@ int main( int argc, char const* argv[] )
 
         // convert argument from string to an unsigned integer
         unsigned int const key_size_int = boost::lexical_cast<unsigned int>( key_size );
+
+        // TODO: update
 
         // verify user requested key length
         if ( key_size_int < 1 || key_size_int > 128 ) {
