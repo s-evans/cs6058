@@ -1,8 +1,8 @@
 #ifndef AES_HPP
 #define AES_HPP
 
-#include <openssl/evp.h>
 #include <openssl/aes.h>
+#include <openssl/evp.h>
 #include <vector>
 
 class aes
@@ -37,24 +37,30 @@ public:
 
     aes& operator=( aes&& ) = delete;
 
-    inline std::vector<unsigned char> decrypt( unsigned char const* const ciphertext, int const len )
+    inline std::vector<unsigned char> decrypt( unsigned char const* const ciphertext, int const ciphertext_len )
     {
 
         if ( EVP_DecryptInit_ex( &d_ctx, _mode, NULL, _key, _iv ) != 1 ) {
             throw "EVP_DecryptInit_ex() failed";
         }
 
-        int p_len = len;
-        int f_len = 0;
-        std::vector<unsigned char> plaintext( p_len );
+        EVP_CIPHER_CTX_set_padding( &d_ctx, 0 );
 
-        EVP_DecryptUpdate( &d_ctx, plaintext.data(), &p_len, ciphertext, len );
+        std::vector<unsigned char> plaintext( ciphertext_len );
 
-        if ( EVP_DecryptFinal_ex( &d_ctx, plaintext.data() + p_len, &f_len ) != 1 ) {
+        int len;
+
+        EVP_DecryptUpdate( &d_ctx, plaintext.data(), &len, ciphertext, ciphertext_len );
+
+        int plaintext_len = len;
+
+        if ( EVP_DecryptFinal_ex( &d_ctx, plaintext.data() + len, &len ) != 1 ) {
             throw "EVP_DecryptFinal_ex() failed";
         }
 
-        plaintext.resize( p_len + f_len );
+        plaintext_len += len;
+
+        plaintext.resize( plaintext_len );
 
         return plaintext;
     }
@@ -67,10 +73,12 @@ public:
         }
 
         int c_len = len + AES_BLOCK_SIZE;
-        int f_len = 0;
+
         std::vector<unsigned char> ciphertext( c_len );
 
         EVP_EncryptUpdate( &e_ctx, ciphertext.data(), &c_len, plaintext, len );
+
+        int f_len = 0;
 
         if ( EVP_EncryptFinal_ex( &e_ctx, ciphertext.data() + c_len, &f_len ) != 1 ) {
             throw "EVP_EncryptFinal_ex() failed";
