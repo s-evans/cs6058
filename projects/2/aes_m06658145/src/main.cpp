@@ -97,6 +97,13 @@ static std::pair<bool, MODE> get_mode( char const* const mode )
     return std::make_pair( false, MODE::CBC );
 }
 
+/**
+ * @brief get the openssl encryption type value from our mode value
+ *
+ * @param mode encryption mode
+ *
+ * @return openssl encryption mode
+ */
 static EVP_CIPHER const* get_evp_mode( MODE mode )
 {
     switch ( mode ) {
@@ -111,6 +118,18 @@ static EVP_CIPHER const* get_evp_mode( MODE mode )
             std::cerr << "ERROR: unknown mode type value (" << ( int )mode << ")" << std::endl;
             return NULL;
     }
+}
+
+/**
+ * @brief get the size of the iv from the mode value
+ *
+ * @param mode encryption mode
+ *
+ * @return size of the iv in bytes
+ */
+static size_t get_iv_size( MODE mode )
+{
+    return ( mode == MODE::ECB ? 0 : 16 );
 }
 
 /**
@@ -146,25 +165,23 @@ static void print_help( char const* const exe )
 static bool write_file( const char* path, std::vector<unsigned char> const& data )
 {
     // open file
-    std::basic_ofstream<unsigned char> os( path, std::ofstream::out | std::ofstream::binary );
+    FILE* const os = fopen( path, "wb" );
 
     // verify file was opened successfully
-    if ( !os.is_open() ) {
+    if ( !os ) {
         std::cerr << "ERROR: failed to open file '" << path << "'" << std::endl;
         return false;
     }
 
     // write to file
-    os.write( data.data(), data.size() );
-
-    // verify write was successful
-    if ( !os ) {
+    if ( 1 != fwrite( data.data(), data.size(), 1, os ) ) {
         std::cerr << "ERROR: failed to write to file '" << path << "'" << std::endl;
+        fclose( os );
         return false;
     }
 
     // close the file
-    os.close();
+    fclose( os );
 
     return true;
 }
@@ -179,52 +196,57 @@ static bool write_file( const char* path, std::vector<unsigned char> const& data
 static std::pair<bool, std::vector<unsigned char>> read_file( char const* path )
 {
     // open file
-    std::basic_ifstream<unsigned char> is( path, std::ifstream::in | std::ifstream::binary );
+    FILE* const is = fopen( path, "rb" );
 
     // verify file was opened successfully
-    if ( !is.is_open() ) {
+    if ( !is ) {
         std::cerr << "ERROR: failed to open file '" << path << "'" << std::endl;
         return std::make_pair( false, std::vector<unsigned char> {} );
     }
 
     // get size of file
-    is.seekg( 0, is.end );
-    size_t const file_size = is.tellg();
-    is.seekg( 0, is.beg );
+    fseek( is, 0, SEEK_END );
+    size_t const file_size = ftell( is );
+    fseek( is, 0, SEEK_SET );
+
+    // create a vector to hold the file data
+    std::vector<unsigned char> data( file_size );
 
     // read from file
-    std::vector<unsigned char> data( file_size );
-    is.read( data.data(), file_size );
-
-    // verify read was successful
-    if ( !is ) {
+    if ( 1 != fread( data.data(), file_size, 1, is ) ) {
+        fclose( is );
         std::cerr << "ERROR: failed to read from file '" << path << "'" << std::endl;
         return std::make_pair( false, std::vector<unsigned char> {} );
     }
 
     // close the file
-    is.close();
+    fclose( is );
 
     return std::make_pair( true, std::move( data ) );
 }
 
 int main( int argc, char const* argv[] )
 {
+    // verify minimum argument count
     if ( argc < 2 ) {
         std::cerr << "ERROR: insufficient argument count" << std::endl;
         print_help( argv[0] );
         return EXIT_FAILURE;
     }
 
+    // create an alias for the operation
     char const* const op = argv[1];
 
+    // check if the user asked for help
     if ( PARAM::HELP_LONG.compare( op ) == 0 || PARAM::HELP_SHORT.compare( op ) == 0 ) {
         print_help( argv[0] );
         return EXIT_SUCCESS;
     }
 
+    // convert from the user specified operation string to the operation int value
     auto const operation = get_op( op );
 
+    // verify result of conversion
     if ( !operation.first ) {
         print_help( argv[0] );
         return EXIT_FAILURE;
@@ -232,161 +254,191 @@ int main( int argc, char const* argv[] )
 
     switch ( operation.second ) {
 
-    case OP::DECRYPT: {
+        case OP::DECRYPT: {
 
-        // verify argument count
-        if ( argc != 6 ) {
-            std::cerr << "ERROR: invalid argument count" << std::endl;
-            print_help( argv[0] );
-            return EXIT_FAILURE;
+            // verify argument count
+            if ( argc != 6 ) {
+                std::cerr << "ERROR: insufficient argument count" << std::endl;
+                print_help( argv[0] );
+                return EXIT_FAILURE;
+            }
+
+            // get string pointers for arguments
+            char const* const mode_string     = argv[2];
+            char const* const key_file        = argv[3];
+            char const* const ciphertext_file = argv[4];
+            char const* const plaintext_file  = argv[5];
+
+            // convert from the mode string to the mode int value
+            auto const mode = get_mode( mode_string );
+
+            // verify result of conversion
+            if ( !mode.first ) {
+                return EXIT_FAILURE;
+            }
+
+            // read key data from file
+            auto const key_file_data = read_file( key_file );
+
+            // verify read was successful
+            if ( !key_file_data.first ) {
+                return EXIT_FAILURE;
+            }
+
+            // create an alias for the key data
+            auto const& key = key_file_data.second;
+
+            // verify size of the key
+            if ( key.size() != 32 ) {
+                std::cerr << "ERROR: invalid key size (" << key.size() << " != 32)" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            // read ciphertext data from file
+            auto const ciphertext_file_data = read_file( ciphertext_file );
+
+            // verify read was successful
+            if ( !ciphertext_file_data.first ) {
+                return EXIT_FAILURE;
+            }
+
+            // create an alias for the ciphertext data
+            auto const& ciphertext = ciphertext_file_data.second;
+
+            // get the size of the IV
+            auto const iv_size = get_iv_size( mode.second );
+
+            // ciphertext size validation
+            if ( ciphertext.size() < iv_size ) {
+                std::cerr << "ERROR: invalid ciphertext size (" << ciphertext.size() << " < " << iv_size << ")" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            // create an aes context using the beginning of the ciphertext as the IV
+            aes aes_ctx( get_evp_mode( mode.second ), key.data(), ciphertext.data() );
+
+            // decrypt the ciphertext skipping the IV at its beginning
+            std::vector<unsigned char> const plaintext( aes_ctx.decrypt( ciphertext.data() + iv_size, ciphertext.size() - iv_size ) );
+
+            // write plaintext data to output file
+            if ( !write_file( plaintext_file, plaintext ) ) {
+                return EXIT_FAILURE;
+            }
+
+            break;
         }
 
-        // get string pointers for arguments
-        char const* const mode_string     = argv[2];
-        char const* const key_file        = argv[3];
-        char const* const ciphertext_file = argv[4];
-        char const* const plaintext_file  = argv[5];
+        case OP::ENCRYPT: {
 
-        auto const mode = get_mode( mode_string );
+            // verify argument count
+            if ( argc != 6 ) {
+                std::cerr << "ERROR: insufficient argument count" << std::endl;
+                print_help( argv[0] );
+                return EXIT_FAILURE;
+            }
 
-        if ( !mode.first ) {
-            return EXIT_FAILURE;
+            // get string pointers for arguments
+            char const* const mode_string     = argv[2];
+            char const* const key_file        = argv[3];
+            char const* const plaintext_file  = argv[4];
+            char const* const ciphertext_file = argv[5];
+
+            // convert from mode string to mode int value
+            auto const mode = get_mode( mode_string );
+
+            // verify result of conversion
+            if ( !mode.first ) {
+                return EXIT_FAILURE;
+            }
+
+            // read key data from file
+            auto const key_file_data = read_file( key_file );
+
+            // verify read was successful
+            if ( !key_file_data.first ) {
+                return EXIT_FAILURE;
+            }
+
+            // create an alias for the key data
+            auto const& key = key_file_data.second;
+
+            // verify size of the key
+            if ( key.size() != 32 ) {
+                std::cerr << "ERROR: invalid key size (" << key.size() << " != 32)" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            // read plaintext data from file
+            auto const plaintext_file_data = read_file( plaintext_file );
+
+            // verify read was successful
+            if ( !plaintext_file_data.first ) {
+                return EXIT_FAILURE;
+            }
+
+            // create an alias for the plaintext data
+            auto const& plaintext = plaintext_file_data.second;
+
+            // generate a random 128-bit initialization vector (IV) if necessary
+            auto iv { keygen( get_iv_size( mode.second ) ) };
+
+            // create an aes crypto context
+            aes aes_ctx( get_evp_mode( mode.second ), key.data(), iv.data() );
+
+            // perform aes encryption
+            auto const ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
+
+            // append ciphertext to the iv
+            iv.insert( iv.end(), ciphertext.begin(), ciphertext.end() );
+
+            // write iv and ciphertext to output file
+            if ( !write_file( ciphertext_file, iv ) ) {
+                return EXIT_FAILURE;
+            }
+
+            break;
         }
 
-        // read key data from file
-        auto const key_file_data = read_file( key_file );
+        case OP::KEYGEN: {
 
-        // verify read was successful
-        if ( !key_file_data.first ) {
-            return EXIT_FAILURE;
+            // verify argument count
+            if ( argc != 4 ) {
+                std::cerr << "ERROR: insufficient argument count" << std::endl;
+                print_help( argv[0] );
+                return EXIT_FAILURE;
+            }
+
+            // get string pointers for arguments
+            char const* const key_size = argv[2];
+            char const* const key_file = argv[3];
+
+            // convert argument from string to an unsigned integer
+            unsigned int const key_size_int = boost::lexical_cast<unsigned int>( key_size );
+
+            // verify user requested key length
+            if ( key_size_int != 256 ) {
+                std::cerr << "ERROR: invalid key size specified" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            // get the size of the key in bytes
+            unsigned int const key_bytes = ( key_size_int + 8 - 1 ) / 8;
+
+            // generate a key
+            auto const key_data { keygen( key_bytes ) };
+
+            // write key data to output file
+            if ( !write_file( key_file, key_data ) ) {
+                return EXIT_FAILURE;
+            }
+
+            break;
         }
 
-        // create an alias for the key data
-        auto const& key = key_file_data.second;
-
-        // read ciphertext data from file
-        auto const ciphertext_file_data = read_file( ciphertext_file );
-
-        // verify read was successful
-        if ( !ciphertext_file_data.first ) {
+        default: {
+            std::cerr << "ERROR: Unknown operation type value (" << ( int )operation.second << ")" << std::endl;
             return EXIT_FAILURE;
         }
-
-        // create an alias for the ciphertext data
-        auto const& ciphertext = ciphertext_file_data.second;
-
-        // TODO: salt?
-        // TODO: iv?
-        aes aes_ctx( get_evp_mode( mode.second ), key.data(), key.size(), (unsigned char*) "foo" );
-
-        std::vector<unsigned char> plaintext( aes_ctx.decrypt( ciphertext.data(), ciphertext.size() ) );
-
-        // write plaintext data to output file
-        if ( !write_file( plaintext_file, plaintext ) ) {
-            return EXIT_FAILURE;
-        }
-
-        break;
-    }
-
-    case OP::ENCRYPT: {
-
-        // verify argument count
-        if ( argc != 6 ) {
-            std::cerr << "ERROR: invalid argument count" << std::endl;
-            print_help( argv[0] );
-            return EXIT_FAILURE;
-        }
-
-        // get string pointers for arguments
-        char const* const mode_string     = argv[2];
-        char const* const key_file        = argv[3];
-        char const* const plaintext_file  = argv[4];
-        char const* const ciphertext_file = argv[5];
-
-        auto const mode = get_mode( mode_string );
-
-        if ( !mode.first ) {
-            return EXIT_FAILURE;
-        }
-
-        // read key data from file
-        auto const key_file_data = read_file( key_file );
-
-        // verify read was successful
-        if ( !key_file_data.first ) {
-            return EXIT_FAILURE;
-        }
-
-        // create an alias for the key data
-        auto const& key = key_file_data.second;
-
-        // read plaintext data from file
-        auto const plaintext_file_data = read_file( plaintext_file );
-
-        // verify read was successful
-        if ( !plaintext_file_data.first ) {
-            return EXIT_FAILURE;
-        }
-
-        // create an alias for the plaintext data
-        auto const& plaintext = plaintext_file_data.second;
-
-        // TODO: salt?
-        // TODO: IV
-        aes aes_ctx( get_evp_mode( mode.second ), key.data(), key.size(), (unsigned char*) "foo" );
-        std::vector<unsigned char> ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
-
-        // write ciphertext to output file
-        if ( !write_file( ciphertext_file, ciphertext ) ) {
-            return EXIT_FAILURE;
-        }
-
-        break;
-    }
-
-    case OP::KEYGEN: {
-
-        // verify argument count
-        if ( argc != 4 ) {
-            std::cerr << "ERROR: invalid argument count" << std::endl;
-            print_help( argv[0] );
-            return EXIT_FAILURE;
-        }
-
-        // get string pointers for arguments
-        char const* const key_size = argv[2];
-        char const* const key_file = argv[3];
-
-        // convert argument from string to an unsigned integer
-        unsigned int const key_size_int = boost::lexical_cast<unsigned int>( key_size );
-
-        // TODO: update
-
-        // verify user requested key length
-        if ( key_size_int < 1 || key_size_int > 128 ) {
-            std::cerr << "ERROR: invalid key size specified" << std::endl;
-            return EXIT_FAILURE;
-        }
-
-        // get the size of the key in bytes
-        unsigned int const key_bytes = ( key_size_int + 8 - 1 ) / 8;
-
-        // generate a key
-        auto const key_data { keygen( key_bytes ) };
-
-        // write key data to output file
-        if ( !write_file( key_file, key_data ) ) {
-            return EXIT_FAILURE;
-        }
-
-        break;
-    }
-
-    default: {
-        std::cerr << "ERROR: Unknown operation type value (" << (int)operation.second << ")" << std::endl;
-        return EXIT_FAILURE;
-    }
 
     }
 

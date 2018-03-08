@@ -18,4 +18,3 @@ std::vector<unsigned char> keygen( unsigned int size )
 
     return key_data;
 }
-

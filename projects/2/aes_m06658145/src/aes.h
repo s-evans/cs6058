@@ -12,43 +12,20 @@ public:
 
     aes() = delete;
 
-    inline aes( EVP_CIPHER const* const mode, unsigned char const* const key_data, int const key_data_len, unsigned char const* const salt )
+    inline aes( EVP_CIPHER const* const mode, unsigned char const* const key, unsigned char const* const iv )
         : e_ctx()
         , d_ctx()
+        , _key( key )
+        , _iv( iv )
+        , _mode( mode )
     {
-        constexpr int const NROUNDS = 5;
-        unsigned char iv[32];
-        unsigned char key[32];
-
-        // TODO: salt?
-        // TODO: input IV?
-        // TODO: keygen?
-        int const i = EVP_BytesToKey( mode, EVP_sha1(), salt, key_data, key_data_len, NROUNDS, key, iv );
-
-        if ( i != 32 ) {
-            throw "EVP_BytesToKey() failed";
-        }
-
         EVP_CIPHER_CTX_init( &e_ctx );
-
-        if ( EVP_EncryptInit_ex( &e_ctx, mode, NULL, key, iv ) != 1 ) {
-            EVP_CIPHER_CTX_cleanup( &e_ctx );
-            throw "EVP_EncryptInit_ex() failed";
-        }
-
         EVP_CIPHER_CTX_init( &d_ctx );
-
-        if ( EVP_DecryptInit_ex( &d_ctx, mode, NULL, key, iv ) != 1 ) {
-            EVP_CIPHER_CTX_cleanup( &e_ctx );
-            EVP_CIPHER_CTX_cleanup( &d_ctx );
-            throw "EVP_DecryptInit_ex() failed";
-        }
     }
 
     inline ~aes()
     {
         if ( EVP_CIPHER_CTX_cleanup( &e_ctx ) != 1 ) { }
-
         if ( EVP_CIPHER_CTX_cleanup( &d_ctx ) != 1 ) { }
     }
 
@@ -63,7 +40,7 @@ public:
     inline std::vector<unsigned char> decrypt( unsigned char const* const ciphertext, int const len )
     {
 
-        if ( EVP_DecryptInit_ex( &d_ctx, NULL, NULL, NULL, NULL ) != 1 ) {
+        if ( EVP_DecryptInit_ex( &d_ctx, _mode, NULL, _key, _iv ) != 1 ) {
             throw "EVP_DecryptInit_ex() failed";
         }
 
@@ -85,7 +62,7 @@ public:
     inline std::vector<unsigned char> encrypt( unsigned char const* const plaintext, int const len )
     {
 
-        if ( EVP_EncryptInit_ex( &e_ctx, NULL, NULL, NULL, NULL ) != 1 ) {
+        if ( EVP_EncryptInit_ex( &e_ctx, _mode, NULL, _key, _iv ) != 1 ) {
             throw "EVP_EncryptInit_ex() failed";
         }
 
@@ -107,6 +84,9 @@ public:
 private:
     EVP_CIPHER_CTX e_ctx;
     EVP_CIPHER_CTX d_ctx;
+    unsigned char const* const _key;
+    unsigned char const* const _iv;
+    EVP_CIPHER const* const _mode;
 
 };
 
