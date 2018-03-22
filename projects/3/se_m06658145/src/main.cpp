@@ -1,7 +1,6 @@
 #include "aes.h"
 #include "keygen.h"
 #include <algorithm>
-#include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <iostream>
 #include <stdlib.h>
@@ -19,34 +18,21 @@ static std::string const HELP_SHORT = "-h";
 namespace OP
 {
 
-static std::string const ENCRYPT = "enc";
-static std::string const DECRYPT = "dec";
 static std::string const KEYGEN  = "keygen";
+static std::string const ENCRYPT = "enc";
+static std::string const TOKEN   = "token";
+static std::string const SEARCH  = "search";
 
 } /* namespace OP */
 
-// Define supported crypto modes
-namespace MODE
-{
-
-static std::string const CBC = "cbc";
-static std::string const ECB = "ecb";
-
-} /* namespace MODE */
-
 } /* namespace PARAM */
-
-// Define constants for supported modes
-enum class MODE {
-    CBC,
-    ECB
-};
 
 // Define constants for supported operations
 enum class OP {
     KEYGEN,
     ENCRYPT,
-    DECRYPT
+    TOKEN,
+    SEARCH
 };
 
 /**
@@ -58,78 +44,25 @@ enum class OP {
  */
 static std::pair<bool, OP> get_op( char const* const op )
 {
-    if ( PARAM::OP::DECRYPT.compare( op ) == 0 ) {
-        return std::make_pair( true, OP::DECRYPT );
+    if ( PARAM::OP::KEYGEN.compare( op ) == 0 ) {
+        return std::make_pair( true, OP::KEYGEN );
     }
 
     if ( PARAM::OP::ENCRYPT.compare( op ) == 0 ) {
         return std::make_pair( true, OP::ENCRYPT );
     }
 
-    if ( PARAM::OP::KEYGEN.compare( op ) == 0 ) {
-        return std::make_pair( true, OP::KEYGEN );
+    if ( PARAM::OP::TOKEN.compare( op ) == 0 ) {
+        return std::make_pair( true, OP::TOKEN );
+    }
+
+    if ( PARAM::OP::SEARCH.compare( op ) == 0 ) {
+        return std::make_pair( true, OP::SEARCH );
     }
 
     std::cerr << "ERROR: unknown operation '" << op << "' specified" << std::endl;
 
     return std::make_pair( false, OP::KEYGEN );
-}
-
-/**
- * @brief convert from string to mode constant
- *
- * @param mode mode in string form
- *
- * @return mode in enum form
- */
-static std::pair<bool, MODE> get_mode( char const* const mode )
-{
-    if ( PARAM::MODE::ECB.compare( mode ) == 0 ) {
-        return std::make_pair( true, MODE::ECB );
-    }
-
-    if ( PARAM::MODE::CBC.compare( mode ) == 0 ) {
-        return std::make_pair( true, MODE::CBC );
-    }
-
-    std::cerr << "ERROR: invalid mode string '" << mode << "' specified" << std::endl;
-
-    return std::make_pair( false, MODE::CBC );
-}
-
-/**
- * @brief get the openssl encryption type value from our mode value
- *
- * @param mode encryption mode
- *
- * @return openssl encryption mode
- */
-static EVP_CIPHER const* get_evp_mode( MODE mode )
-{
-    switch ( mode ) {
-
-        case MODE::CBC:
-            return EVP_aes_256_cbc();
-
-        case MODE::ECB:
-            return EVP_aes_256_ecb();
-
-        default:
-            std::cerr << "ERROR: unknown mode type value (" << ( int )mode << ")" << std::endl;
-            return NULL;
-    }
-}
-
-/**
- * @brief get the size of the iv from the mode value
- *
- * @param mode encryption mode
- *
- * @return size of the iv in bytes
- */
-static size_t get_iv_size( MODE mode )
-{
-    return ( mode == MODE::ECB ? 0 : 16 );
 }
 
 /**
@@ -146,11 +79,10 @@ static void print_help( char const* const exe )
 
     std::cerr << "Synopsis:\n";
     std::cerr << "\t" << exe << " (-h|--help)\n";
-    std::cerr << "\t" << exe << " enc ecb <key_file_path> <plaintext_file_path> <ciphertext_file_path>\n";
-    std::cerr << "\t" << exe << " dec ecb <key_file_path> <ciphertext_file_path> <plaintext_file_path>\n";
-    std::cerr << "\t" << exe << " enc cbc <key_file_path> <plaintext_file_path> <ciphertext_file_path>\n";
-    std::cerr << "\t" << exe << " dec cbc <key_file_path> <ciphertext_file_path> <plaintext_file_path>\n";
-    std::cerr << "\t" << exe << " keygen <key_size> <key_file_path>\n";
+    std::cerr << "\t" << exe << "keygen <prf_key_file_path> <aes_key_file_path>                                                          \n";
+    std::cerr << "\t" << exe << "enc <prf_key_file_path> <aes_key_file_path> <index_file_path> <plaintext_dir_path> <ciphertext_dir_path>\n";
+    std::cerr << "\t" << exe << "token <keyword> <prf_key_file_path> <token_file_path>                                                   \n";
+    std::cerr << "\t" << exe << "search <index_file_path> <token_file_path> <ciphertext_dir_path> <aes_key_file_path>                    \n";
     std::cerr << std::flush;
 }
 
@@ -252,152 +184,10 @@ int main( int argc, char const* argv[] )
         return EXIT_FAILURE;
     }
 
+    constexpr int const IV_SIZE = 16;
+    constexpr int const KEY_SIZE = 32;
+
     switch ( operation.second ) {
-
-        case OP::DECRYPT: {
-
-            // verify argument count
-            if ( argc != 6 ) {
-                std::cerr << "ERROR: insufficient argument count" << std::endl;
-                print_help( argv[0] );
-                return EXIT_FAILURE;
-            }
-
-            // get string pointers for arguments
-            char const* const mode_string     = argv[2];
-            char const* const key_file        = argv[3];
-            char const* const ciphertext_file = argv[4];
-            char const* const plaintext_file  = argv[5];
-
-            // convert from the mode string to the mode int value
-            auto const mode = get_mode( mode_string );
-
-            // verify result of conversion
-            if ( !mode.first ) {
-                return EXIT_FAILURE;
-            }
-
-            // read key data from file
-            auto const key_file_data = read_file( key_file );
-
-            // verify read was successful
-            if ( !key_file_data.first ) {
-                return EXIT_FAILURE;
-            }
-
-            // create an alias for the key data
-            auto const& key = key_file_data.second;
-
-            // verify size of the key
-            if ( key.size() != 32 ) {
-                std::cerr << "ERROR: invalid key size (" << key.size() << " != 32)" << std::endl;
-                return EXIT_FAILURE;
-            }
-
-            // read ciphertext data from file
-            auto const ciphertext_file_data = read_file( ciphertext_file );
-
-            // verify read was successful
-            if ( !ciphertext_file_data.first ) {
-                return EXIT_FAILURE;
-            }
-
-            // create an alias for the ciphertext data
-            auto const& ciphertext = ciphertext_file_data.second;
-
-            // get the size of the IV
-            auto const iv_size = get_iv_size( mode.second );
-
-            // ciphertext size validation
-            if ( ciphertext.size() < iv_size ) {
-                std::cerr << "ERROR: invalid ciphertext size (" << ciphertext.size() << " < " << iv_size << ")" << std::endl;
-                return EXIT_FAILURE;
-            }
-
-            // create an aes context using the beginning of the ciphertext as the IV
-            aes aes_ctx( get_evp_mode( mode.second ), key.data(), ciphertext.data() );
-
-            // decrypt the ciphertext skipping the IV at its beginning
-            std::vector<unsigned char> const plaintext( aes_ctx.decrypt( ciphertext.data() + iv_size, ciphertext.size() - iv_size ) );
-
-            // write plaintext data to output file
-            if ( !write_file( plaintext_file, plaintext ) ) {
-                return EXIT_FAILURE;
-            }
-
-            break;
-        }
-
-        case OP::ENCRYPT: {
-
-            // verify argument count
-            if ( argc != 6 ) {
-                std::cerr << "ERROR: insufficient argument count" << std::endl;
-                print_help( argv[0] );
-                return EXIT_FAILURE;
-            }
-
-            // get string pointers for arguments
-            char const* const mode_string     = argv[2];
-            char const* const key_file        = argv[3];
-            char const* const plaintext_file  = argv[4];
-            char const* const ciphertext_file = argv[5];
-
-            // convert from mode string to mode int value
-            auto const mode = get_mode( mode_string );
-
-            // verify result of conversion
-            if ( !mode.first ) {
-                return EXIT_FAILURE;
-            }
-
-            // read key data from file
-            auto const key_file_data = read_file( key_file );
-
-            // verify read was successful
-            if ( !key_file_data.first ) {
-                return EXIT_FAILURE;
-            }
-
-            // create an alias for the key data
-            auto const& key = key_file_data.second;
-
-            // verify size of the key
-            if ( key.size() != 32 ) {
-                std::cerr << "ERROR: invalid key size (" << key.size() << " != 32)" << std::endl;
-                return EXIT_FAILURE;
-            }
-
-            // read plaintext data from file
-            auto const plaintext_file_data = read_file( plaintext_file );
-
-            // verify read was successful
-            if ( !plaintext_file_data.first ) {
-                return EXIT_FAILURE;
-            }
-
-            // create an alias for the plaintext data
-            auto const& plaintext = plaintext_file_data.second;
-
-            // generate a random 128-bit initialization vector (IV) if necessary
-            auto iv { keygen( get_iv_size( mode.second ) ) };
-
-            // create an aes crypto context
-            aes aes_ctx( get_evp_mode( mode.second ), key.data(), iv.data() );
-
-            // perform aes encryption
-            auto const ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
-
-            // append ciphertext to the iv
-            iv.insert( iv.end(), ciphertext.begin(), ciphertext.end() );
-
-            // write iv and ciphertext to output file
-            if ( !write_file( ciphertext_file, iv ) ) {
-                return EXIT_FAILURE;
-            }
-
-            break;
-        }
 
         case OP::KEYGEN: {
 
@@ -409,29 +199,134 @@ int main( int argc, char const* argv[] )
             }
 
             // get string pointers for arguments
-            char const* const key_size = argv[2];
-            char const* const key_file = argv[3];
+            char const* const aes_key_file = argv[2];
+            char const* const prf_key_file = argv[3];
 
-            // convert argument from string to an unsigned integer
-            unsigned int const key_size_int = boost::lexical_cast<unsigned int>( key_size );
-
-            // verify user requested key length
-            if ( key_size_int != 256 ) {
-                std::cerr << "ERROR: invalid key size specified" << std::endl;
-                return EXIT_FAILURE;
-            }
-
-            // get the size of the key in bytes
-            unsigned int const key_bytes = ( key_size_int + 8 - 1 ) / 8;
-
-            // generate a key
-            auto const key_data { keygen( key_bytes ) };
+            // generate an aes key
+            auto const aes_key_data { keygen( KEY_SIZE ) };
 
             // write key data to output file
-            if ( !write_file( key_file, key_data ) ) {
+            if ( !write_file( aes_key_file, aes_key_data ) ) {
                 return EXIT_FAILURE;
             }
 
+            // TODO: do key generation for prf
+            // TODO: update write_file call below for prf key data
+
+            // write key data to output file
+            if ( !write_file( prf_key_file, aes_key_data ) ) {
+                return EXIT_FAILURE;
+            }
+
+            break;
+        }
+
+        case OP::ENCRYPT: {
+
+            // verify argument count
+            if ( argc != 7 ) {
+                std::cerr << "ERROR: insufficient argument count" << std::endl;
+                print_help( argv[0] );
+                return EXIT_FAILURE;
+            }
+
+            // get string pointers for arguments
+            char const* const prf_key_file   = argv[2];
+            char const* const aes_key_file   = argv[3];
+            char const* const index_file     = argv[4];
+            char const* const plaintext_dir  = argv[5];
+            char const* const ciphertext_dir = argv[6];
+
+            // read key data from file
+            auto const aes_key_file_data = read_file( aes_key_file );
+
+            // verify read was successful
+            if ( !aes_key_file_data.first ) {
+                return EXIT_FAILURE;
+            }
+
+            // create an alias for the key data
+            auto const& aes_key = aes_key_file_data.second;
+
+            // verify size of the aes key
+            if ( aes_key.size() != KEY_SIZE ) {
+                std::cerr << "ERROR: invalid aes key size (" << aes_key.size() << " != 32)" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            // read prf key data from file
+            auto const prf_key_file_data = read_file( prf_key_file );
+
+            // verify read was successful
+            if ( !prf_key_file_data.first ) {
+                return EXIT_FAILURE;
+            }
+
+            // create an alias for the key data
+            auto const& prf_key = prf_key_file_data.second;
+
+            // verify size of the prf key
+            if ( prf_key.size() != KEY_SIZE ) {
+                std::cerr << "ERROR: invalid prf key size (" << prf_key.size() << " != 32)" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            // TODO: do something with the index data (perhaps this is a write-only operation, and not a read)
+
+            // TODO: for each file in plaintext dir
+            for ( int i = 0 ; i < 1 ; ++i ) {
+
+                // read plaintext data from file
+                auto const plaintext_file_data = read_file( plaintext_dir );
+
+                // verify read was successful
+                if ( !plaintext_file_data.first ) {
+                    return EXIT_FAILURE;
+                }
+
+                // create an alias for the plaintext data
+                auto const& plaintext = plaintext_file_data.second;
+
+                // TODO: figure out what to do with the IV (single IV? multiple IVs? where the IV(s) should go?)
+
+                // generate a random 128-bit initialization vector (IV)
+                auto const iv { keygen( IV_SIZE ) };
+
+                // TODO: tokenize the plaintext input file data (split tokens by whitespace)
+
+                // TODO: for each token
+                for ( int j = 0 ; j < 1 ; ++j ) {
+
+                    // create an aes crypto context
+                    aes aes_ctx( EVP_aes_256_cbc(), aes_key.data(), iv.data() );
+
+                    // perform aes encryption
+                    auto const ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
+
+                    // TODO: add the ciphertext and file name to an index data structure
+                }
+
+                // TODO: create a ciphertext of the entire plaintext
+                // TODO: concat ciphertext dir with a filename to create a file path
+
+                // write ciphertext to output file
+                if ( !write_file( ciphertext_dir, iv ) ) {
+                    return EXIT_FAILURE;
+                }
+            }
+
+            // TODO: output the index data to the index file
+
+            break;
+        }
+
+        case OP::TOKEN: {
+            // TODO: implement
+            break;
+        }
+
+        case OP::SEARCH: {
+            // TODO: implement
             break;
         }
 
