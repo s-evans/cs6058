@@ -7,7 +7,7 @@ add_executable(se
     src/keygen.cpp
 )
 
-target_link_libraries(se PRIVATE crypto)
+target_link_libraries(se PRIVATE crypto boost_filesystem boost_system)
 
 add_executable(test_running_time
     src/keygen.cpp

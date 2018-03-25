@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <boost/filesystem.hpp>
 
 constexpr int const IV_SIZE = 16;
 constexpr int const KEY_SIZE = 32;
@@ -261,13 +262,37 @@ static int encrypt_directory(
     // create an alias for the key data
     auto const& prf_key = prf_key_file_data.second;
 
-    // TODO: do something with the index data (perhaps this is a write-only operation, and not a read)
+    // TODO: do something with the index data
 
-    // TODO: for each file in plaintext dir
-    for ( int i = 0 ; i < 1 ; ++i ) {
+    // verify plaintext direcctory is in fact a directory
+    if ( !boost::filesystem::is_directory( boost::filesystem::status( plaintext_dir ) ) ) {
+        std::cerr << "ERROR: '" << plaintext_dir << "' is not a directory" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // verify ciphertext direcctory is in fact a directory
+    if ( !boost::filesystem::is_directory( boost::filesystem::status( ciphertext_dir ) ) ) {
+        std::cerr << "ERROR: '" << ciphertext_dir << "' is not a directory" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    int i = 0;
+
+    // for each file in plaintext dir
+    for ( auto file = boost::filesystem::directory_iterator( plaintext_dir ) ;
+        file != boost::filesystem::directory_iterator() ;
+        ++file, ++i ) {
+
+        // create output file path
+        auto const output_file_path = boost::filesystem::path( ciphertext_dir ) / std::to_string( i );
+
+        // skip non-regular files
+        if ( !boost::filesystem::is_regular_file( file->status() ) ) {
+            continue;
+        }
 
         // read plaintext data from file
-        auto const plaintext_file_data = read_file( plaintext_dir );
+        auto const plaintext_file_data = read_file( file->path().c_str() );
 
         // verify read was successful
         if ( !plaintext_file_data.first ) {
@@ -277,30 +302,57 @@ static int encrypt_directory(
         // create an alias for the plaintext data
         auto const& plaintext = plaintext_file_data.second;
 
-        // TODO: figure out what to do with the IV (single IV? multiple IVs? where the IV(s) should go?)
+        // create an array of whitespace delimiter characters
+        constexpr std::array<unsigned char, 4> const delimiters{ { ' ', '\n', '\r', '\t' } };
+
+        // create a function object for identifying a delimiter
+        auto is_delimiter = [&]( unsigned char v ){
+            return std::find( delimiters.begin(), delimiters.end(), v ) != delimiters.end();
+        };
+
+        // create a function object for identifying a non-delimiter
+        auto is_not_delimiter = [&]( unsigned char v ){
+            return !is_delimiter( v );
+        };
+
+        // for each token
+        for (
+            // find first non-delimiter character in plaintext
+            auto token_begin = std::find_if( plaintext.begin(), plaintext.end(), is_not_delimiter ),
+            // find first delimiter character after non-delimiter
+            token_end = std::find_if( token_begin, plaintext.end(), is_delimiter );
+            // search entire plaintext
+            token_begin != plaintext.end();
+            // find first non-delimiter character after previous token
+            token_begin = std::find_if( token_end, plaintext.end(), is_not_delimiter ),
+            // find first delimiter character after new token
+            token_end = std::find_if( token_begin, plaintext.end(), is_delimiter )
+        ) {
+
+            // create an aes crypto context for prf
+            aes aes_ctx( EVP_aes_256_ecb(), prf_key.data(), nullptr );
+
+            // perform aes 256 ecb encryption as prf
+            auto const prf_token( aes_ctx.encrypt( &*token_begin, token_end - token_begin ) );
+
+            // TODO: add the ciphertext and file name to an index data structure
+
+        }
 
         // generate a random 128-bit initialization vector (IV)
         auto const iv { keygen( IV_SIZE ) };
 
-        // TODO: tokenize the plaintext input file data (split tokens by whitespace)
+        // create an aes crypto context
+        aes aes_ctx( EVP_aes_256_cbc(), aes_key.data(), iv.data() );
 
-        // TODO: for each token
-        for ( int j = 0 ; j < 1 ; ++j ) {
+        // perform aes encryption
+        auto ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
 
-            // create an aes crypto context
-            aes aes_ctx( EVP_aes_256_cbc(), aes_key.data(), iv.data() );
-
-            // perform aes encryption
-            auto const ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
-
-            // TODO: add the ciphertext and file name to an index data structure
-        }
-
-        // TODO: create a ciphertext of the entire plaintext
-        // TODO: concat ciphertext dir with a filename to create a file path
+        // prepend the iv to the ciphertext
+        ciphertext.insert( ciphertext.begin(), iv.begin(), iv.end() );
 
         // write ciphertext to output file
-        if ( !write_file( ciphertext_dir, iv ) ) {
+        if ( !write_file( output_file_path.c_str(), ciphertext ) ) {
             return EXIT_FAILURE;
         }
     }
