@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+constexpr int const IV_SIZE = 16;
+constexpr int const KEY_SIZE = 32;
+
 // Define parameters
 namespace PARAM
 {
@@ -125,7 +128,7 @@ static bool write_file( const char* path, std::vector<unsigned char> const& data
  *
  * @return true and vector of bytes if successful; false otherwise;
  */
-static std::pair<bool, std::vector<unsigned char>> read_file( char const* path )
+static std::pair<bool, std::vector<unsigned char>> read_file( char const* const path )
 {
     // open file
     FILE* const is = fopen( path, "rb" );
@@ -157,6 +160,176 @@ static std::pair<bool, std::vector<unsigned char>> read_file( char const* path )
     return std::make_pair( true, std::move( data ) );
 }
 
+/**
+ * @brief Generate a an aes key to an output file
+ *
+ * @param aes_key_file path to aes output key file
+ * @param prf_key_file path to output prf key file
+ *
+ * @return EXIT_FAILURE or EXIT_SUCCESS
+ */
+static int keygen_to_file(
+    char const* const aes_key_file,
+    char const* const prf_key_file )
+{
+    // generate an aes key
+    auto const aes_key_data { keygen( KEY_SIZE ) };
+
+    // write key data to output file
+    if ( !write_file( aes_key_file, aes_key_data ) ) {
+        return EXIT_FAILURE;
+    }
+
+    // TODO: do key generation for prf
+    // TODO: update write_file call below for prf key data
+
+    // write key data to output file
+    if ( !write_file( prf_key_file, aes_key_data ) ) {
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+/**
+ * @brief Encrypt files in input directory to output directory
+ *
+ * @param prf_key_file path to prf key file
+ * @param aes_key_file path to aes key file
+ * @param index_file path to index file
+ * @param plaintext_dir path to input directory
+ * @param ciphertext_dir path to output directory
+ *
+ * @return EXIT_SUCCESS or EXIT_FAILURE
+ */
+static int encrypt_directory(
+    char const* const prf_key_file,
+    char const* const aes_key_file,
+    char const* const index_file,
+    char const* const plaintext_dir,
+    char const* const ciphertext_dir )
+{
+    // read key data from file
+    auto const aes_key_file_data = read_file( aes_key_file );
+
+    // verify read was successful
+    if ( !aes_key_file_data.first ) {
+        return EXIT_FAILURE;
+    }
+
+    // create an alias for the key data
+    auto const& aes_key = aes_key_file_data.second;
+
+    // verify size of the aes key
+    if ( aes_key.size() != KEY_SIZE ) {
+        std::cerr << "ERROR: invalid aes key size (" << aes_key.size() << " != 32)" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // read prf key data from file
+    auto const prf_key_file_data = read_file( prf_key_file );
+
+    // verify read was successful
+    if ( !prf_key_file_data.first ) {
+        return EXIT_FAILURE;
+    }
+
+    // create an alias for the key data
+    auto const& prf_key = prf_key_file_data.second;
+
+    // verify size of the prf key
+    if ( prf_key.size() != KEY_SIZE ) {
+        std::cerr << "ERROR: invalid prf key size (" << prf_key.size() << " != 32)" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // TODO: do something with the index data (perhaps this is a write-only operation, and not a read)
+
+    // TODO: for each file in plaintext dir
+    for ( int i = 0 ; i < 1 ; ++i ) {
+
+        // read plaintext data from file
+        auto const plaintext_file_data = read_file( plaintext_dir );
+
+        // verify read was successful
+        if ( !plaintext_file_data.first ) {
+            return EXIT_FAILURE;
+        }
+
+        // create an alias for the plaintext data
+        auto const& plaintext = plaintext_file_data.second;
+
+        // TODO: figure out what to do with the IV (single IV? multiple IVs? where the IV(s) should go?)
+
+        // generate a random 128-bit initialization vector (IV)
+        auto const iv { keygen( IV_SIZE ) };
+
+        // TODO: tokenize the plaintext input file data (split tokens by whitespace)
+
+        // TODO: for each token
+        for ( int j = 0 ; j < 1 ; ++j ) {
+
+            // create an aes crypto context
+            aes aes_ctx( EVP_aes_256_cbc(), aes_key.data(), iv.data() );
+
+            // perform aes encryption
+            auto const ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
+
+            // TODO: add the ciphertext and file name to an index data structure
+        }
+
+        // TODO: create a ciphertext of the entire plaintext
+        // TODO: concat ciphertext dir with a filename to create a file path
+
+        // write ciphertext to output file
+        if ( !write_file( ciphertext_dir, iv ) ) {
+            return EXIT_FAILURE;
+        }
+    }
+
+    // TODO: output the index data to the index file
+
+    return EXIT_SUCCESS;
+}
+
+/**
+ * @brief Add the given token string to the token file
+ *
+ * @param token_keyword input token keyword to be added
+ * @param prf_key_file path to input prf key
+ * @param token_file path to output token file
+ *
+ * @return EXIT_FAILURE or EXIT_SUCCESS
+ */
+static int add_token_to_file(
+    char const* const token_keyword,
+    char const* const prf_key_file,
+    char const* const token_file )
+{
+    // TODO: implement
+    return EXIT_SUCCESS;
+}
+
+/**
+ * @brief Performs search function
+ *
+ * @param index_file path to index file
+ * @param token_file path to token file
+ * @param ciphertext_dir path to ciphertext directory
+ * @param aes_key_file path to the aes key file
+ *
+ * @return EXIT_FAILURE or EXIT_SUCCESS
+ */
+static int search_token(
+    char const* const index_file,
+    char const* const token_file,
+    char const* const ciphertext_dir,
+    char const* const aes_key_file )
+{
+    // TODO: implement
+    return EXIT_SUCCESS;
+}
+
 int main( int argc, char const* argv[] )
 {
     // verify minimum argument count
@@ -184,9 +357,6 @@ int main( int argc, char const* argv[] )
         return EXIT_FAILURE;
     }
 
-    constexpr int const IV_SIZE = 16;
-    constexpr int const KEY_SIZE = 32;
-
     switch ( operation.second ) {
 
         case OP::KEYGEN: {
@@ -202,23 +372,7 @@ int main( int argc, char const* argv[] )
             char const* const aes_key_file = argv[2];
             char const* const prf_key_file = argv[3];
 
-            // generate an aes key
-            auto const aes_key_data { keygen( KEY_SIZE ) };
-
-            // write key data to output file
-            if ( !write_file( aes_key_file, aes_key_data ) ) {
-                return EXIT_FAILURE;
-            }
-
-            // TODO: do key generation for prf
-            // TODO: update write_file call below for prf key data
-
-            // write key data to output file
-            if ( !write_file( prf_key_file, aes_key_data ) ) {
-                return EXIT_FAILURE;
-            }
-
-            break;
+            return keygen_to_file( aes_key_file, prf_key_file );
         }
 
         case OP::ENCRYPT: {
@@ -237,97 +391,47 @@ int main( int argc, char const* argv[] )
             char const* const plaintext_dir  = argv[5];
             char const* const ciphertext_dir = argv[6];
 
-            // read key data from file
-            auto const aes_key_file_data = read_file( aes_key_file );
-
-            // verify read was successful
-            if ( !aes_key_file_data.first ) {
-                return EXIT_FAILURE;
-            }
-
-            // create an alias for the key data
-            auto const& aes_key = aes_key_file_data.second;
-
-            // verify size of the aes key
-            if ( aes_key.size() != KEY_SIZE ) {
-                std::cerr << "ERROR: invalid aes key size (" << aes_key.size() << " != 32)" << std::endl;
-                return EXIT_FAILURE;
-            }
-
-            // read prf key data from file
-            auto const prf_key_file_data = read_file( prf_key_file );
-
-            // verify read was successful
-            if ( !prf_key_file_data.first ) {
-                return EXIT_FAILURE;
-            }
-
-            // create an alias for the key data
-            auto const& prf_key = prf_key_file_data.second;
-
-            // verify size of the prf key
-            if ( prf_key.size() != KEY_SIZE ) {
-                std::cerr << "ERROR: invalid prf key size (" << prf_key.size() << " != 32)" << std::endl;
-                return EXIT_FAILURE;
-            }
-
-            // TODO: do something with the index data (perhaps this is a write-only operation, and not a read)
-
-            // TODO: for each file in plaintext dir
-            for ( int i = 0 ; i < 1 ; ++i ) {
-
-                // read plaintext data from file
-                auto const plaintext_file_data = read_file( plaintext_dir );
-
-                // verify read was successful
-                if ( !plaintext_file_data.first ) {
-                    return EXIT_FAILURE;
-                }
-
-                // create an alias for the plaintext data
-                auto const& plaintext = plaintext_file_data.second;
-
-                // TODO: figure out what to do with the IV (single IV? multiple IVs? where the IV(s) should go?)
-
-                // generate a random 128-bit initialization vector (IV)
-                auto const iv { keygen( IV_SIZE ) };
-
-                // TODO: tokenize the plaintext input file data (split tokens by whitespace)
-
-                // TODO: for each token
-                for ( int j = 0 ; j < 1 ; ++j ) {
-
-                    // create an aes crypto context
-                    aes aes_ctx( EVP_aes_256_cbc(), aes_key.data(), iv.data() );
-
-                    // perform aes encryption
-                    auto const ciphertext( aes_ctx.encrypt( plaintext.data(), plaintext.size() ) );
-
-                    // TODO: add the ciphertext and file name to an index data structure
-                }
-
-                // TODO: create a ciphertext of the entire plaintext
-                // TODO: concat ciphertext dir with a filename to create a file path
-
-                // write ciphertext to output file
-                if ( !write_file( ciphertext_dir, iv ) ) {
-                    return EXIT_FAILURE;
-                }
-            }
-
-            // TODO: output the index data to the index file
-
-            break;
+            return encrypt_directory(
+                prf_key_file,
+                aes_key_file,
+                index_file,
+                plaintext_dir,
+                ciphertext_dir );
         }
 
         case OP::TOKEN: {
-            // TODO: implement
-            break;
+
+            // verify argument count
+            if ( argc != 5 ) {
+                std::cerr << "ERROR: insufficient argument count" << std::endl;
+                print_help( argv[0] );
+                return EXIT_FAILURE;
+            }
+
+            // get string pointers for arguments
+            char const* const token_keyword = argv[2];
+            char const* const prf_key_file  = argv[3];
+            char const* const token_file    = argv[4];
+
+            return add_token_to_file( token_keyword, prf_key_file, token_file );
         }
 
         case OP::SEARCH: {
-            // TODO: implement
-            break;
+
+            // verify argument count
+            if ( argc != 6 ) {
+                std::cerr << "ERROR: insufficient argument count" << std::endl;
+                print_help( argv[0] );
+                return EXIT_FAILURE;
+            }
+
+            // get string pointers for arguments
+            char const* const index_file     = argv[2];
+            char const* const token_file     = argv[3];
+            char const* const ciphertext_dir = argv[4];
+            char const* const aes_key_file   = argv[5];
+
+            return search_token( index_file, token_file, ciphertext_dir, aes_key_file );
         }
 
         default: {
