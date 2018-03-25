@@ -161,9 +161,38 @@ static std::pair<bool, std::vector<unsigned char>> read_file( char const* const 
 }
 
 /**
+ * @brief reads key data from a file and verifies key length
+ *
+ * @param path path to key file
+ *
+ * @return first = true if successful; second = key data;
+ */
+static std::pair<bool, std::vector<unsigned char>> read_key_from_file( char const* const path )
+{
+    // read key data from file
+    auto const key_file_data = read_file( path );
+
+    // verify read was successful
+    if ( !key_file_data.first ) {
+        return std::make_pair( false, std::vector<unsigned char>{} );
+    }
+
+    // create an alias for the key data
+    auto const& key = key_file_data.second;
+
+    // verify size of the aes key
+    if ( key.size() != KEY_SIZE ) {
+        std::cerr << "ERROR: invalid aes key size (" << key.size() << " != 32)" << std::endl;
+        return std::make_pair( false, std::vector<unsigned char>{} );
+    }
+
+    return key_file_data;
+}
+
+/**
  * @brief Generate a an aes key to an output file
  *
- * @param aes_key_file path to aes output key file
+ * @param aes_key_file path to output aes key file
  * @param prf_key_file path to output prf key file
  *
  * @return EXIT_FAILURE or EXIT_SUCCESS
@@ -180,11 +209,11 @@ static int keygen_to_file(
         return EXIT_FAILURE;
     }
 
-    // TODO: do key generation for prf
-    // TODO: update write_file call below for prf key data
+    // generate a key for the PRF
+    auto const prf_key_data { keygen( KEY_SIZE ) };
 
     // write key data to output file
-    if ( !write_file( prf_key_file, aes_key_data ) ) {
+    if ( !write_file( prf_key_file, prf_key_data ) ) {
         return EXIT_FAILURE;
     }
 
@@ -210,7 +239,7 @@ static int encrypt_directory(
     char const* const ciphertext_dir )
 {
     // read key data from file
-    auto const aes_key_file_data = read_file( aes_key_file );
+    auto const aes_key_file_data = read_key_from_file( aes_key_file );
 
     // verify read was successful
     if ( !aes_key_file_data.first ) {
@@ -220,14 +249,8 @@ static int encrypt_directory(
     // create an alias for the key data
     auto const& aes_key = aes_key_file_data.second;
 
-    // verify size of the aes key
-    if ( aes_key.size() != KEY_SIZE ) {
-        std::cerr << "ERROR: invalid aes key size (" << aes_key.size() << " != 32)" << std::endl;
-        return EXIT_FAILURE;
-    }
-
     // read prf key data from file
-    auto const prf_key_file_data = read_file( prf_key_file );
+    auto const prf_key_file_data = read_key_from_file( prf_key_file );
 
     // verify read was successful
     if ( !prf_key_file_data.first ) {
@@ -236,12 +259,6 @@ static int encrypt_directory(
 
     // create an alias for the key data
     auto const& prf_key = prf_key_file_data.second;
-
-    // verify size of the prf key
-    if ( prf_key.size() != KEY_SIZE ) {
-        std::cerr << "ERROR: invalid prf key size (" << prf_key.size() << " != 32)" << std::endl;
-        return EXIT_FAILURE;
-    }
 
     // TODO: do something with the index data (perhaps this is a write-only operation, and not a read)
 
@@ -306,7 +323,19 @@ static int add_token_to_file(
     char const* const prf_key_file,
     char const* const token_file )
 {
+    // read key data from file
+    auto const prf_key_file_data = read_key_from_file( prf_key_file );
+
+    // verify read was successful
+    if ( !prf_key_file_data.first ) {
+        return EXIT_FAILURE;
+    }
+
+    // create an alias for the key data
+    auto const& prf_key = prf_key_file_data.second;
+
     // TODO: implement
+
     return EXIT_SUCCESS;
 }
 
@@ -326,7 +355,19 @@ static int search_token(
     char const* const ciphertext_dir,
     char const* const aes_key_file )
 {
+    // read key data from file
+    auto const aes_key_file_data = read_key_from_file( aes_key_file );
+
+    // verify read was successful
+    if ( !aes_key_file_data.first ) {
+        return EXIT_FAILURE;
+    }
+
+    // create an alias for the key data
+    auto const& aes_key = aes_key_file_data.second;
+
     // TODO: implement
+
     return EXIT_SUCCESS;
 }
 
