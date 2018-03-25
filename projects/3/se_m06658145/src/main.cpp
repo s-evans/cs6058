@@ -170,11 +170,11 @@ static std::pair<bool, std::vector<unsigned char>> read_file( char const* const 
 static std::pair<bool, std::vector<unsigned char>> read_key_from_file( char const* const path )
 {
     // read key data from file
-    auto const key_file_data = read_file( path );
+    auto key_file_data = read_file( path );
 
     // verify read was successful
     if ( !key_file_data.first ) {
-        return std::make_pair( false, std::vector<unsigned char>{} );
+        return key_file_data;
     }
 
     // create an alias for the key data
@@ -182,8 +182,9 @@ static std::pair<bool, std::vector<unsigned char>> read_key_from_file( char cons
 
     // verify size of the aes key
     if ( key.size() != KEY_SIZE ) {
-        std::cerr << "ERROR: invalid aes key size (" << key.size() << " != 32)" << std::endl;
-        return std::make_pair( false, std::vector<unsigned char>{} );
+        std::cerr << "ERROR: invalid key size (" << key.size() << " != 32)" << std::endl;
+        key_file_data.first = false;
+        return key_file_data;
     }
 
     return key_file_data;
