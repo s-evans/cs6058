@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 2.8.4)
 
-project(aes)
+project(se)
 
-add_executable(aes
+add_executable(se
     src/main.cpp
     src/keygen.cpp
 )
 
-target_link_libraries(aes PRIVATE crypto)
+target_link_libraries(se PRIVATE crypto)
 
 add_executable(test_running_time
     src/keygen.cpp
