@@ -89,10 +89,11 @@ static void print_help( char const* const exe )
 
     std::cerr << "Synopsis:\n";
     std::cerr << "\t" << exe << " (-h|--help)\n";
-    std::cerr << "\t" << exe << " keygen <prf_key_file_path> <aes_key_file_path>                                                          \n";
+    std::cerr << "\t" << exe << " keygen <prf_key_file_path> <aes_key_file_path>\n";
     std::cerr << "\t" << exe << " enc <prf_key_file_path> <aes_key_file_path> <index_file_path> <plaintext_dir_path> <ciphertext_dir_path>\n";
-    std::cerr << "\t" << exe << " token <keyword> <prf_key_file_path> <token_file_path>                                                   \n";
-    std::cerr << "\t" << exe << " search <index_file_path> <token_file_path> <ciphertext_dir_path> <aes_key_file_path>                    \n";
+    std::cerr << "\t" << exe << " token <keyword> <prf_key_file_path> <token_file_path>\n";
+    std::cerr << "\t" << exe << " search <index_file_path> <token_file_path> <ciphertext_dir_path> <aes_key_file_path>\n";
+
     std::cerr << std::flush;
 }
 
@@ -333,7 +334,8 @@ static int encrypt_directory(
             token_end = std::find_if( token_begin, plaintext.end(), is_delimiter )
         ) {
             // add the ciphertext and file name to an index data structure
-            index.emplace( std::make_pair( prf( prf_key.data(), &*token_begin, token_end - token_begin  ), output_file_path ) );
+            index.emplace(
+                std::make_pair( prf( prf_key.data(), &*token_begin, token_end - token_begin  ), output_file_path ) );
         }
 
         // generate a random 128-bit initialization vector (IV)
@@ -465,6 +467,7 @@ static int search_token(
     // deserialize the index data structure from the index data buffer
     auto const index = deserialize( index_vector );
 
+    // create a container of distinct file paths
     std::set<boost::filesystem::path> matching_files;
 
     // iterate over input tokens
@@ -487,8 +490,13 @@ static int search_token(
     }
 
     // output space delimited filenames on the cli
-    std::copy( matching_files.begin(), matching_files.end(), std::ostream_iterator<boost::filesystem::path>( std::cout, " " ) );
+    std::copy(
+        matching_files.begin(),
+        matching_files.end(),
+        std::ostream_iterator<boost::filesystem::path>( std::cout, " " ) );
     std::cout << std::endl;
+
+    // decrypt and output file data for those contain matching token
 
     // for each matching file
     for ( auto&& file : matching_files ) {
