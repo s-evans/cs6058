@@ -494,7 +494,7 @@ static int search_token(
         matching_files.begin(),
         matching_files.end(),
         std::ostream_iterator<boost::filesystem::path>( std::cout, " " ) );
-    std::cout << std::endl;
+    std::cout << "\n";
 
     // decrypt and output file data for those contain matching token
 
@@ -528,7 +528,7 @@ static int search_token(
         auto const decrypted_data{ ctx.decrypt( file_data.data() + IV_SIZE, file_data.size() - IV_SIZE ) };
 
         // output decrypted file to cout
-        std::cout << (char const*) decrypted_data.data() << std::endl;
+        std::cout << (char const*) decrypted_data.data() << "\n";
     }
 
     return EXIT_SUCCESS;
