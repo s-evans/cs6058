@@ -1,6 +1,9 @@
-#include "aes.h"
-#include "keygen.h"
+#include "add_token_to_file.h"
+#include "encrypt_directory.h"
+#include "keygen_to_file.h"
+#include "search_token.h"
 #include <algorithm>
+#include <boost/filesystem.hpp>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -104,7 +107,12 @@ static void test_running_time( unsigned int const iterations, T const& f )
     output_stats( results );
 }
 
-void test_search_time( unsigned int const iterations )
+void test_search_time(
+    unsigned int const iterations,
+    char const* const index_file,
+    char const* const token_file,
+    char const* const ciphertext_dir,
+    char const* const aes_key_file )
 {
     std::cout << "running encrypted index search timing test" << std::endl;
 
@@ -112,12 +120,22 @@ void test_search_time( unsigned int const iterations )
     test_running_time(
         iterations,
         [&]() {
-            // TODO: implement
+            search_token(
+                index_file,
+                token_file,
+                ciphertext_dir,
+                aes_key_file );
         }
     );
 }
 
-void test_encrypt_time( unsigned int const iterations )
+void test_encrypt_time(
+    unsigned int const iterations,
+    char const* const prf_key_file,
+    char const* const aes_key_file,
+    char const* const index_file,
+    char const* const plaintext_dir,
+    char const* const ciphertext_dir )
 {
     std::cout << "running encrypted index generation timing test" << std::endl;
 
@@ -125,7 +143,12 @@ void test_encrypt_time( unsigned int const iterations )
     test_running_time(
         iterations,
         [&]() {
-            // TODO: implement
+            encrypt_directory(
+                prf_key_file,
+                aes_key_file,
+                index_file,
+                plaintext_dir,
+                ciphertext_dir );
         }
     );
 }
@@ -135,9 +158,34 @@ int main( int argc, const char* argv[] )
     // set the number of iterations
     constexpr unsigned int const ITERATIONS = 5000;
 
-    test_encrypt_time( ITERATIONS );
+    char const aes_key_file[]   = "aes_key.bin";
+    char const prf_key_file[]   = "prf_key.bin";
+    char const index_file[]     = "index.bin";
+    char const token_file[]     = "token.bin";
+    char const plaintext_dir[]  = "../data/files/";
+    char const ciphertext_dir[] = "../data/ciphertextfiles/";
+    char const search_token[]   = "packers";
 
-    test_search_time( ITERATIONS );
+    // create keys
+    if ( EXIT_SUCCESS != keygen_to_file( aes_key_file, prf_key_file ) ) {
+        std::cerr << "failed to generate keys" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // perform input data encryption timing test
+    test_encrypt_time( ITERATIONS, prf_key_file, aes_key_file, index_file, plaintext_dir, ciphertext_dir );
+
+    // ensure token file does not exist
+    boost::filesystem::remove( token_file );
+
+    // create token file
+    if ( EXIT_SUCCESS != add_token_to_file( search_token, prf_key_file, token_file ) ) {
+        std::cerr << "failed to create token file" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // perform token search timing test
+    test_search_time( ITERATIONS, index_file, token_file, ciphertext_dir, aes_key_file );
 
     return EXIT_SUCCESS;
 }
