@@ -11,6 +11,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <set>
+#include <iterator>
 
 constexpr int const IV_SIZE = 16;
 constexpr int const KEY_SIZE = 32;
@@ -463,6 +465,8 @@ static int search_token(
     // deserialize the index data structure from the index data buffer
     auto const index = deserialize( index_vector );
 
+    std::set<boost::filesystem::path> matching_files;
+
     // iterate over input tokens
     for ( auto itr = token_data.begin() ; itr != token_data.end() ; itr += 16 ) {
 
@@ -475,14 +479,49 @@ static int search_token(
         std::array<unsigned char, 16> prf_token;
         std::copy( itr, itr + 16, prf_token.begin() );
 
-        // iterate over files that contain the token
+        // iterate over matching files
         for ( auto file = index.lower_bound( prf_token ) ; file != index.upper_bound( prf_token ) ; ++file ) {
-            // TODO: do something with the matching files
-            std::cout << file->second << std::endl;
+            // add the matching files to the set
+            matching_files.insert( file->second );
         }
     }
 
-    // TODO: decrypt the ciphertext files that were found to match
+    // output space delimited filenames on the cli
+    std::copy( matching_files.begin(), matching_files.end(), std::ostream_iterator<boost::filesystem::path>( std::cout, " " ) );
+    std::cout << std::endl;
+
+    // for each matching file
+    for ( auto&& file : matching_files ) {
+
+        // output the file name
+        std::cout << file << ": ";
+
+        // read encrypted file
+        auto const read_operation = read_file( file.c_str() );
+
+        // verify file read status
+        if ( !read_operation.first ) {
+            continue;
+        }
+
+        // create an alias for the encrypted file data
+        auto const& file_data = read_operation.second;
+
+        // verify that the file data contains enough data for the iv
+        if ( file_data.size() < IV_SIZE ) {
+            std::cout << "IV NOT FOUND" << std::endl;
+            continue;
+        }
+
+        // create an aes crypto context
+        aes ctx{ EVP_aes_256_cbc(), aes_key.data(), file_data.data() };
+
+        // decrypt file data
+        auto const decrypted_data{ ctx.decrypt( file_data.data() + IV_SIZE, file_data.size() - IV_SIZE ) };
+
+        // output decrypted file to cout
+        std::cout << (char const*) decrypted_data.data() << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }
