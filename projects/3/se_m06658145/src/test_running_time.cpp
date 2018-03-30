@@ -104,114 +104,28 @@ static void test_running_time( unsigned int const iterations, T const& f )
     output_stats( results );
 }
 
-void test_ecb( unsigned int const iterations, std::vector<unsigned char> const& key, std::vector<unsigned char> const& plaintext )
+void test_search_time( unsigned int const iterations )
 {
-    // create an aes context for ecb
-    aes aes_ecb_ctx( EVP_aes_256_ecb(), key.data(), NULL );
-
-    std::cout << "running ECB encryption test" << std::endl;
+    std::cout << "running encrypted index search timing test" << std::endl;
 
     // run test iterations
     test_running_time(
         iterations,
         [&]() {
-            // perform encryption
-            std::vector<unsigned char> ciphertext{ aes_ecb_ctx.encrypt( plaintext.data(), plaintext.size() ) };
-        }
-    );
-
-    std::cout << "running ECB decryption test" << std::endl;
-
-    // allocate and populate a ciphertext buffer
-    std::vector<unsigned char> const ciphertext{ plaintext };
-
-    // run test iterations
-    test_running_time(
-        iterations,
-        [&]() {
-            // perform decryption
-            std::vector<unsigned char> plain{ aes_ecb_ctx.decrypt( ciphertext.data(), ciphertext.size() ) };
+            // TODO: implement
         }
     );
 }
 
-void test_cbc_fixed_iv(
-    unsigned int const iterations,
-    std::vector<unsigned char> const& key,
-    std::vector<unsigned char> const& plaintext )
+void test_encrypt_time( unsigned int const iterations )
 {
-    // generate a random iv
-    auto const iv = keygen( 128 );
-
-    // create an aes context for cbc
-    aes aes_cbc_ctx( EVP_aes_256_cbc(), key.data(), iv.data() );
-
-    std::cout << "running CBC w/ fixed IV encryption test" << std::endl;
+    std::cout << "running encrypted index generation timing test" << std::endl;
 
     // run test iterations
     test_running_time(
         iterations,
         [&]() {
-            // perform encryption
-            std::vector<unsigned char> ciphertext{ aes_cbc_ctx.encrypt( plaintext.data(), plaintext.size() ) };
-        }
-    );
-
-    std::cout << "running CBC w/ fixed IV decryption test" << std::endl;
-
-    // allocate and populate a ciphertext buffer
-    std::vector<unsigned char> const ciphertext{ plaintext };
-
-    // run test iterations
-    test_running_time(
-        iterations,
-        [&]() {
-            // perform decryption
-            std::vector<unsigned char> plain{ aes_cbc_ctx.decrypt( ciphertext.data(), ciphertext.size() ) };
-        }
-    );
-}
-
-void test_cbc_random_iv(
-    unsigned int const iterations,
-    std::vector<unsigned char> const& key,
-    std::vector<unsigned char> const& plaintext )
-{
-
-    std::cout << "running CBC w/ random IV encryption test" << std::endl;
-
-    // run test iterations
-    test_running_time(
-        iterations,
-        [&]() {
-            // generate a random iv
-            auto const iv = keygen( 128 );
-
-            // create an aes context for cbc
-            aes aes_cbc_ctx( EVP_aes_256_cbc(), key.data(), iv.data() );
-
-            // perform encryption
-            std::vector<unsigned char> ciphertext{ aes_cbc_ctx.encrypt( plaintext.data(), plaintext.size() ) };
-        }
-    );
-
-    std::cout << "running CBC w/ random IV decryption test" << std::endl;
-
-    // allocate and populate a ciphertext buffer
-    std::vector<unsigned char> const ciphertext{ plaintext };
-
-    // run test iterations
-    test_running_time(
-        iterations,
-        [&]() {
-            // generate a random iv
-            auto const iv = keygen( 128 );
-
-            // create an aes context for cbc
-            aes aes_cbc_ctx( EVP_aes_256_cbc(), key.data(), iv.data() );
-
-            // perform decryption
-            std::vector<unsigned char> plain{ aes_cbc_ctx.decrypt( ciphertext.data(), ciphertext.size() ) };
+            // TODO: implement
         }
     );
 }
@@ -221,17 +135,9 @@ int main( int argc, const char* argv[] )
     // set the number of iterations
     constexpr unsigned int const ITERATIONS = 5000;
 
-    // generate a random key
-    auto const key = keygen( 256 );
+    test_encrypt_time( ITERATIONS );
 
-    // generate a random plaintext
-    auto const plaintext = keygen( 256 );
-
-    test_ecb( ITERATIONS, key, plaintext );
-
-    test_cbc_fixed_iv( ITERATIONS, key, plaintext );
-
-    test_cbc_random_iv( ITERATIONS, key, plaintext );
+    test_search_time( ITERATIONS );
 
     return EXIT_SUCCESS;
 }

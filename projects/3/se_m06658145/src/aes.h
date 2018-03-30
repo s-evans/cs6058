@@ -5,6 +5,9 @@
 #include <openssl/evp.h>
 #include <vector>
 
+constexpr int const IV_SIZE = 16;
+constexpr int const KEY_SIZE = 32;
+
 class aes
 {
 
