@@ -188,7 +188,7 @@ int main( int argc, char const* argv[] )
             char const* const ciphertext_dir = argv[4];
             char const* const aes_key_file   = argv[5];
 
-            return search_token( index_file, token_file, ciphertext_dir, aes_key_file );
+            return search_token( index_file, token_file, ciphertext_dir, aes_key_file, std::cout );
         }
 
         default: {

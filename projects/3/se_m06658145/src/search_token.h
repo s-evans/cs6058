@@ -28,7 +28,8 @@ inline int search_token(
     char const* const index_file,
     char const* const token_file,
     char const* const ciphertext_dir,
-    char const* const aes_key_file )
+    char const* const aes_key_file,
+    std::ostream& output )
 {
     // read key data from file
     auto const aes_key_file_data = read_key_from_file( aes_key_file );
@@ -92,8 +93,8 @@ inline int search_token(
     std::copy(
         matching_files.begin(),
         matching_files.end(),
-        std::ostream_iterator<boost::filesystem::path>( std::cout, " " ) );
-    std::cout << "\n";
+        std::ostream_iterator<boost::filesystem::path>( output, " " ) );
+    output << "\n";
 
     // decrypt and output file data for those contain matching token
 
@@ -101,7 +102,7 @@ inline int search_token(
     for ( auto&& file : matching_files ) {
 
         // output the file name
-        std::cout << file << ": ";
+        output << file << ": ";
 
         // read encrypted file
         auto const read_operation = read_file( file.c_str() );
@@ -116,7 +117,7 @@ inline int search_token(
 
         // verify that the file data contains enough data for the iv
         if ( file_data.size() < IV_SIZE ) {
-            std::cout << "IV NOT FOUND" << std::endl;
+            output << "IV NOT FOUND" << std::endl;
             continue;
         }
 
@@ -127,7 +128,7 @@ inline int search_token(
         auto const decrypted_data{ ctx.decrypt( file_data.data() + IV_SIZE, file_data.size() - IV_SIZE ) };
 
         // output decrypted file to cout
-        std::cout << (char const*) decrypted_data.data() << "\n";
+        output << (char const*) decrypted_data.data() << "\n";
     }
 
     return EXIT_SUCCESS;

@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <numeric>
+#include <sstream>
 #include <stdlib.h>
 
 /**
@@ -120,11 +121,13 @@ void test_search_time(
     test_running_time(
         iterations,
         [&]() {
+            std::ostringstream oss;
             search_token(
                 index_file,
                 token_file,
                 ciphertext_dir,
-                aes_key_file );
+                aes_key_file,
+                oss );
         }
     );
 }
@@ -156,7 +159,7 @@ void test_encrypt_time(
 int main( int argc, const char* argv[] )
 {
     // set the number of iterations
-    constexpr unsigned int const ITERATIONS = 5000;
+    constexpr unsigned int const ITERATIONS = 100;
 
     char const aes_key_file[]   = "aes_key.bin";
     char const prf_key_file[]   = "prf_key.bin";
