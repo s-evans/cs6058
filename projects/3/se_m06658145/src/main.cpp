@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <boost/filesystem.hpp>
+#include <map>
 
 constexpr int const IV_SIZE = 16;
 constexpr int const KEY_SIZE = 32;
@@ -83,10 +84,10 @@ static void print_help( char const* const exe )
 
     std::cerr << "Synopsis:\n";
     std::cerr << "\t" << exe << " (-h|--help)\n";
-    std::cerr << "\t" << exe << "keygen <prf_key_file_path> <aes_key_file_path>                                                          \n";
-    std::cerr << "\t" << exe << "enc <prf_key_file_path> <aes_key_file_path> <index_file_path> <plaintext_dir_path> <ciphertext_dir_path>\n";
-    std::cerr << "\t" << exe << "token <keyword> <prf_key_file_path> <token_file_path>                                                   \n";
-    std::cerr << "\t" << exe << "search <index_file_path> <token_file_path> <ciphertext_dir_path> <aes_key_file_path>                    \n";
+    std::cerr << "\t" << exe << " keygen <prf_key_file_path> <aes_key_file_path>                                                          \n";
+    std::cerr << "\t" << exe << " enc <prf_key_file_path> <aes_key_file_path> <index_file_path> <plaintext_dir_path> <ciphertext_dir_path>\n";
+    std::cerr << "\t" << exe << " token <keyword> <prf_key_file_path> <token_file_path>                                                   \n";
+    std::cerr << "\t" << exe << " search <index_file_path> <token_file_path> <ciphertext_dir_path> <aes_key_file_path>                    \n";
     std::cerr << std::flush;
 }
 
@@ -262,8 +263,6 @@ static int encrypt_directory(
     // create an alias for the key data
     auto const& prf_key = prf_key_file_data.second;
 
-    // TODO: do something with the index data
-
     // verify plaintext direcctory is in fact a directory
     if ( !boost::filesystem::is_directory( boost::filesystem::status( plaintext_dir ) ) ) {
         std::cerr << "ERROR: '" << plaintext_dir << "' is not a directory" << std::endl;
@@ -276,15 +275,15 @@ static int encrypt_directory(
         return EXIT_FAILURE;
     }
 
-    int i = 0;
+    std::multimap<std::vector<unsigned char>, boost::filesystem::path> index;
 
     // for each file in plaintext dir
     for ( auto file = boost::filesystem::directory_iterator( plaintext_dir ) ;
         file != boost::filesystem::directory_iterator() ;
-        ++file, ++i ) {
+        ++file ) {
 
         // create output file path
-        auto const output_file_path = boost::filesystem::path( ciphertext_dir ) / std::to_string( i );
+        auto const output_file_path = boost::filesystem::path( ciphertext_dir ) / file->path().filename();
 
         // skip non-regular files
         if ( !boost::filesystem::is_regular_file( file->status() ) ) {
@@ -335,8 +334,11 @@ static int encrypt_directory(
             // perform aes 256 ecb encryption as prf
             auto const prf_token( aes_ctx.encrypt( &*token_begin, token_end - token_begin ) );
 
-            // TODO: add the ciphertext and file name to an index data structure
+            // truncate the prf token to a fixed length of 16 bytes
+            std::vector<unsigned char> const prf_token_truncated( prf_token.begin(), prf_token.begin() + 16 );
 
+            // add the ciphertext and file name to an index data structure
+            index.emplace( std::make_pair( prf_token_truncated, output_file_path ) );
         }
 
         // generate a random 128-bit initialization vector (IV)
@@ -357,7 +359,33 @@ static int encrypt_directory(
         }
     }
 
-    // TODO: output the index data to the index file
+    // serialize the index data to a string
+    std::vector<unsigned char> index_string;
+
+    // for each token
+    for ( auto token_record = index.begin() ; token_record != index.end() ; ) {
+        auto const& token = token_record->first;
+
+        index_string.insert( index_string.end(), token.begin(), token.end() );
+
+        // for each file
+        do {
+            auto const& file = token_record->second;
+            auto const& filename_string = file.string();
+
+            index_string.insert( index_string.end(), ' ' );
+            index_string.insert( index_string.end(), filename_string.begin(), filename_string.end() );
+
+            ++token_record;
+        } while ( token_record != index.end() && token_record->first == token );
+
+        index_string.insert( index_string.end(), '\n' );
+    }
+
+    // write serialized index string to file
+    if ( !write_file( index_file, index_string ) ) {
+        return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }
