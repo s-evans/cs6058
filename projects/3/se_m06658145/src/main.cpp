@@ -1,15 +1,16 @@
 #include "aes.h"
+#include "index.h"
 #include "keygen.h"
 #include "prf.h"
 #include <algorithm>
+#include <boost/filesystem.hpp>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <stdlib.h>
 #include <string>
-#include <vector>
-#include <boost/filesystem.hpp>
-#include <map>
 #include <utility>
+#include <vector>
 
 constexpr int const IV_SIZE = 16;
 constexpr int const KEY_SIZE = 32;
@@ -351,31 +352,8 @@ static int encrypt_directory(
         }
     }
 
-    // serialize the index data to a string
-    std::vector<unsigned char> index_string;
-
-    // for each token
-    for ( auto token_record = index.begin() ; token_record != index.end() ; ) {
-        auto const& token = token_record->first;
-
-        index_string.insert( index_string.end(), token.begin(), token.end() );
-
-        // for each file
-        do {
-            auto const& file = token_record->second;
-            auto const& filename_string = file.string();
-
-            index_string.insert( index_string.end(), ' ' );
-            index_string.insert( index_string.end(), filename_string.begin(), filename_string.end() );
-
-            ++token_record;
-        } while ( token_record != index.end() && token_record->first == token );
-
-        index_string.insert( index_string.end(), '\n' );
-    }
-
     // write serialized index string to file
-    if ( !write_file( index_file, index_string ) ) {
+    if ( !write_file( index_file, serialize( index ) ) ) {
         return EXIT_FAILURE;
     }
 
@@ -407,7 +385,28 @@ static int add_token_to_file(
     // create an alias for the key data
     auto const& prf_key = prf_key_file_data.second;
 
-    // TODO: implement
+    // create prf token from input token
+    auto const prf_token =
+        prf( prf_key.data(), reinterpret_cast<const unsigned char*>( token_keyword ), strlen( token_keyword ) );
+
+    // open file to append binary data
+    FILE* const os = fopen( token_file, "ab" );
+
+    // verify file was opened successfully
+    if ( !os ) {
+        std::cerr << "ERROR: failed to open file '" << token_file << "'" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // write to file
+    if ( 1 != fwrite( prf_token.data(), prf_token.size(), 1, os ) ) {
+        std::cerr << "ERROR: failed to write to file '" << token_file << "'" << std::endl;
+        fclose( os );
+        return EXIT_FAILURE;
+    }
+
+    // close the file
+    fclose( os );
 
     return EXIT_SUCCESS;
 }
@@ -439,7 +438,51 @@ static int search_token(
     // create an alias for the key data
     auto const& aes_key = aes_key_file_data.second;
 
-    // TODO: implement
+    // read from index file
+    auto const index_file_data = read_file( index_file );
+
+    // verify read was successful
+    if ( !index_file_data.first ) {
+        return EXIT_FAILURE;
+    }
+
+    // alias for the index file data
+    auto const& index_vector = index_file_data.second;
+
+    // read from token file
+    auto const token_file_data = read_file( token_file );
+
+    // verify read was successful
+    if ( !token_file_data.first ) {
+        return EXIT_FAILURE;
+    }
+
+    // alias for the token file data
+    auto const& token_data = token_file_data.second;
+
+    // deserialize the index data structure from the index data buffer
+    auto const index = deserialize( index_vector );
+
+    // iterate over input tokens
+    for ( auto itr = token_data.begin() ; itr != token_data.end() ; itr += 16 ) {
+
+        // verify enough space for a prf token
+        if ( token_data.end() - itr < 16 ) {
+            break;
+        }
+
+        // get the prf token from the input data
+        std::array<unsigned char, 16> prf_token;
+        std::copy( itr, itr + 16, prf_token.begin() );
+
+        // iterate over files that contain the token
+        for ( auto file = index.lower_bound( prf_token ) ; file != index.upper_bound( prf_token ) ; ++file ) {
+            // TODO: do something with the matching files
+            std::cout << file->second << std::endl;
+        }
+    }
+
+    // TODO: decrypt the ciphertext files that were found to match
 
     return EXIT_SUCCESS;
 }
