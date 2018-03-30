@@ -1,5 +1,6 @@
 #include "aes.h"
 #include "keygen.h"
+#include "prf.h"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -8,6 +9,7 @@
 #include <vector>
 #include <boost/filesystem.hpp>
 #include <map>
+#include <utility>
 
 constexpr int const IV_SIZE = 16;
 constexpr int const KEY_SIZE = 32;
@@ -275,7 +277,7 @@ static int encrypt_directory(
         return EXIT_FAILURE;
     }
 
-    std::multimap<std::vector<unsigned char>, boost::filesystem::path> index;
+    std::multimap<std::array<unsigned char, 16>, boost::filesystem::path> index;
 
     // for each file in plaintext dir
     for ( auto file = boost::filesystem::directory_iterator( plaintext_dir ) ;
@@ -327,18 +329,8 @@ static int encrypt_directory(
             // find first delimiter character after new token
             token_end = std::find_if( token_begin, plaintext.end(), is_delimiter )
         ) {
-
-            // create an aes crypto context for prf
-            aes aes_ctx( EVP_aes_256_ecb(), prf_key.data(), nullptr );
-
-            // perform aes 256 ecb encryption as prf
-            auto const prf_token( aes_ctx.encrypt( &*token_begin, token_end - token_begin ) );
-
-            // truncate the prf token to a fixed length of 16 bytes
-            std::vector<unsigned char> const prf_token_truncated( prf_token.begin(), prf_token.begin() + 16 );
-
             // add the ciphertext and file name to an index data structure
-            index.emplace( std::make_pair( prf_token_truncated, output_file_path ) );
+            index.emplace( std::make_pair( prf( prf_key.data(), &*token_begin, token_end - token_begin  ), output_file_path ) );
         }
 
         // generate a random 128-bit initialization vector (IV)
