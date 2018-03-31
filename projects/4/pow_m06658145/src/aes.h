@@ -1,107 +1,59 @@
-#ifndef AES_HPP
-#define AES_HPP
+#ifndef SHA256_HPP
+#define SHA256_HPP
 
-#include <openssl/aes.h>
 #include <openssl/evp.h>
-#include <vector>
+#include <array>
 
-// TODO: remove this
-// TODO: make a sha256 thing
-
-constexpr int const IV_SIZE = 16;
-constexpr int const KEY_SIZE = 32;
-
-class aes
+class sha256
 {
 
 public:
 
-    aes() = delete;
-
-    inline aes( EVP_CIPHER const* const mode, unsigned char const* const key, unsigned char const* const iv )
-        : e_ctx()
-        , d_ctx()
-        , _key( key )
-        , _iv( iv )
-        , _mode( mode )
+    inline sha256()
+        : ctx()
     {
-        EVP_CIPHER_CTX_init( &e_ctx );
-        EVP_CIPHER_CTX_init( &d_ctx );
+        if ( EVP_DigestInit_ex( &ctx, EVP_sha256(), nullptr ) != 1 ) {
+            throw "EVP_DigestInit_ex() failed";
+        }
     }
 
-    inline ~aes()
+    inline ~sha256()
     {
-        if ( EVP_CIPHER_CTX_cleanup( &e_ctx ) != 1 ) { }
-        if ( EVP_CIPHER_CTX_cleanup( &d_ctx ) != 1 ) { }
+        if ( EVP_MD_CTX_cleanup( &ctx ) != 1 ) { }
     }
 
-    aes( aes const& ) = delete;
+    sha256( sha256 const& ) = delete;
 
-    aes& operator=( aes const& ) = delete;
+    sha256& operator=( sha256 const& ) = delete;
 
-    aes( aes&& ) = delete;
+    sha256( sha256&& ) = delete;
 
-    aes& operator=( aes&& ) = delete;
+    sha256& operator=( sha256&& ) = delete;
 
-    inline std::vector<unsigned char> decrypt( unsigned char const* const ciphertext, int const ciphertext_len )
+    inline std::array<unsigned char, 16> hash( unsigned char const* const data, int const len )
     {
-
-        if ( EVP_DecryptInit_ex( &d_ctx, _mode, NULL, _key, _iv ) != 1 ) {
-            throw "EVP_DecryptInit_ex() failed";
+        if ( EVP_DigestUpdate( &ctx, data, len ) != 1 ) {
+            throw "EVP_DigestUpdate() failed";
         }
 
-        EVP_CIPHER_CTX_set_padding( &d_ctx, 0 );
+        std::array<unsigned char, 16> hash;
+        unsigned int hash_size = sizeof( hash );
 
-        std::vector<unsigned char> plaintext( ciphertext_len );
-
-        int len;
-
-        EVP_DecryptUpdate( &d_ctx, plaintext.data(), &len, ciphertext, ciphertext_len );
-
-        int plaintext_len = len;
-
-        if ( EVP_DecryptFinal_ex( &d_ctx, plaintext.data() + len, &len ) != 1 ) {
-            throw "EVP_DecryptFinal_ex() failed";
+        if ( EVP_DigestFinal_ex( &ctx, hash.data(), &hash_size ) != 1 ) {
+            throw "EVP_DigestFinal_ex() failed";
         }
 
-        plaintext_len += len;
-
-        plaintext.resize( plaintext_len );
-
-        return plaintext;
-    }
-
-    inline std::vector<unsigned char> encrypt( unsigned char const* const plaintext, int const len )
-    {
-
-        if ( EVP_EncryptInit_ex( &e_ctx, _mode, NULL, _key, _iv ) != 1 ) {
-            throw "EVP_EncryptInit_ex() failed";
+        if ( hash_size != sizeof( hash ) ) {
+            throw "unexpected hash size";
         }
 
-        int c_len = len + AES_BLOCK_SIZE;
-
-        std::vector<unsigned char> ciphertext( c_len );
-
-        EVP_EncryptUpdate( &e_ctx, ciphertext.data(), &c_len, plaintext, len );
-
-        int f_len = 0;
-
-        if ( EVP_EncryptFinal_ex( &e_ctx, ciphertext.data() + c_len, &f_len ) != 1 ) {
-            throw "EVP_EncryptFinal_ex() failed";
-        }
-
-        ciphertext.resize( c_len + f_len );
-
-        return ciphertext;
+        return hash;
     }
 
 private:
-    EVP_CIPHER_CTX e_ctx;
-    EVP_CIPHER_CTX d_ctx;
-    unsigned char const* const _key;
-    unsigned char const* const _iv;
-    EVP_CIPHER const* const _mode;
+
+    EVP_MD_CTX ctx;
 
 };
 
-#endif // AES_HPP
+#endif // SHA256_HPP
