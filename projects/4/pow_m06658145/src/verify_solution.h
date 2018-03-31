@@ -2,6 +2,7 @@
 #define VERIFY_SOLUTION_HPP
 
 #include "read_file.h"
+#include "sha256.h"
 #include <array>
 #include <stdlib.h>
 
@@ -28,7 +29,7 @@ inline int verify_solution(
     }
 
     // alias the input data
-    auto const& input_data = input_file_data.second;
+    auto const& input = input_file_data.second;
 
     // read target from file
     auto const target_file_data = read_file( target_file_path );
@@ -39,7 +40,7 @@ inline int verify_solution(
     }
 
     // alias the target data
-    auto const& target_data = target_file_data.second;
+    auto const& target = target_file_data.second;
 
     // read solution from file
     auto const solution_file_data = read_file( solution_file_path );
@@ -50,11 +51,24 @@ inline int verify_solution(
     }
 
     // alias the solution data
-    auto const& solution_data = solution_file_data.second;
+    auto const& solution = solution_file_data.second;
 
-    // TODO: implement
+    // concatenate input and candidate solution
+    std::vector<unsigned char> subject{ input };
+    subject.insert( subject.end(), solution.begin(), solution.end() );
 
-    return EXIT_SUCCESS;
+    // create the hash
+    auto const hash = sha256().hash( subject.data(), subject.size() );
+
+//     // TODO: compare hash and target
+//     if ( hash <= target ) {
+//         std::cout << "1" << std::endl;
+//         return EXIT_SUCCESS;
+//     }
+
+    std::cout << "0" << std::endl;
+
+    return EXIT_FAILURE;
 }
 
 #endif // VERIFY_SOLUTION_HPP
