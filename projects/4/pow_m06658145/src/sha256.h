@@ -30,13 +30,13 @@ public:
 
     sha256& operator=( sha256&& ) = delete;
 
-    inline std::array<unsigned char, 16> hash( unsigned char const* const data, int const len )
+    inline std::array<unsigned char, 32> hash( unsigned char const* const data, int const len )
     {
         if ( EVP_DigestUpdate( &ctx, data, len ) != 1 ) {
             throw "EVP_DigestUpdate() failed";
         }
 
-        std::array<unsigned char, 16> hash;
+        std::array<unsigned char, 32> hash;
         unsigned int hash_size = sizeof( hash );
 
         if ( EVP_DigestFinal_ex( &ctx, hash.data(), &hash_size ) != 1 ) {

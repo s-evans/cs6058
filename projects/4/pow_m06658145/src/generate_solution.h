@@ -1,10 +1,11 @@
 #ifndef GENERATE_SOLUTION_HPP
 #define GENERATE_SOLUTION_HPP
 
+#include "generate_random.h"
 #include "read_file.h"
 #include "sha256.h"
 #include "write_file.h"
-#include <array>
+#include <algorithm>
 #include <stdlib.h>
 
 /**
@@ -43,9 +44,15 @@ inline int generate_solution(
     // alias the target data
     auto const& target = target_file_data.second;
 
+    // verify target size
+    if ( target.size() != 32 ) {
+        std::cerr << "ERROR: invalid target" << std::endl;
+        return EXIT_FAILURE;
+    }
+
     while ( 1 ) {
-        // TODO: generate a candidate solution
-        std::vector<unsigned char> solution;
+        // generate a candidate solution
+        std::vector<unsigned char> solution{ generate_random( input.size() ) };
 
         // concatenate input and candidate solution
         std::vector<unsigned char> subject{ input };
@@ -54,20 +61,18 @@ inline int generate_solution(
         // create the hash
         auto const hash = sha256().hash( subject.data(), subject.size() );
 
-        // TODO: compare hash and target
-        // if ( hash <= target ) {
-        //     continue;
-        // }
+        // compare hash and target (target < hash)
+        if ( std::lexicographical_compare( target.begin(), target.end(), hash.begin(), hash.end() ) ) {
+            continue;
+        }
 
         // write solution to file
         if ( !write_file( solution_file_path, solution.data(), solution.size() ) ) {
             return EXIT_FAILURE;
         }
 
-        break;
+        return EXIT_SUCCESS;
     }
-
-    return EXIT_SUCCESS;
 }
 
 #endif // GENERATE_SOLUTION_HPP

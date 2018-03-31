@@ -1,8 +1,18 @@
-#include "keygen.h"
-#include <random>
-#include <algorithm>
+#ifndef GENERATE_RANDOM_HPP
+#define GENERATE_RANDOM_HPP
 
-std::vector<unsigned char> keygen( unsigned int size )
+#include <algorithm>
+#include <random>
+#include <vector>
+
+/**
+ * @brief generate a random string of bytes
+ *
+ * @param size size of random string in bytes
+ *
+ * @return vector of random bytes
+ */
+inline std::vector<unsigned char> generate_random( unsigned int size )
 {
     // allocate memory for key data
     std::vector<unsigned char> key_data( size );
@@ -18,3 +28,5 @@ std::vector<unsigned char> keygen( unsigned int size )
 
     return key_data;
 }
+
+#endif // GENERATE_RANDOM_HPP

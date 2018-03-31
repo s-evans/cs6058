@@ -3,7 +3,7 @@
 
 #include "read_file.h"
 #include "sha256.h"
-#include <array>
+#include <algorithm>
 #include <stdlib.h>
 
 /**
@@ -42,6 +42,12 @@ inline int verify_solution(
     // alias the target data
     auto const& target = target_file_data.second;
 
+    // verify target size
+    if ( target.size() != 32 ) {
+        std::cerr << "ERROR: invalid target" << std::endl;
+        return EXIT_FAILURE;
+    }
+
     // read solution from file
     auto const solution_file_data = read_file( solution_file_path );
 
@@ -60,15 +66,15 @@ inline int verify_solution(
     // create the hash
     auto const hash = sha256().hash( subject.data(), subject.size() );
 
-//     // TODO: compare hash and target
-//     if ( hash <= target ) {
-//         std::cout << "1" << std::endl;
-//         return EXIT_SUCCESS;
-//     }
+    // compare hash and target (target < hash)
+    if ( std::lexicographical_compare( target.begin(), target.end(), hash.begin(), hash.end() ) ) {
+        std::cout << "0" << std::endl;
+        return EXIT_FAILURE;
+    }
 
-    std::cout << "0" << std::endl;
+    std::cout << "1" << std::endl;
 
-    return EXIT_FAILURE;
+    return EXIT_SUCCESS;
 }
 
 #endif // VERIFY_SOLUTION_HPP
