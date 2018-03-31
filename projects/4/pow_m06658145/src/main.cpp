@@ -120,7 +120,7 @@ int main( int argc, char const* argv[] )
             char const* const difficulty       = argv[2];
             char const* const target_file_path = argv[3];
 
-            unsigned int difficulty_int = boost::lexical_cast<unsigned int>( difficulty );
+            int difficulty_int = boost::lexical_cast<int>( difficulty );
 
             return target_generation( difficulty_int, target_file_path );
         }

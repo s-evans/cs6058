@@ -5,6 +5,9 @@
 #include <openssl/evp.h>
 #include <vector>
 
+// TODO: remove this
+// TODO: make a sha256 thing
+
 constexpr int const IV_SIZE = 16;
 constexpr int const KEY_SIZE = 32;
 

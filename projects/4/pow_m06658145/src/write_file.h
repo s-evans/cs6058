@@ -10,11 +10,12 @@
  * @brief write an array of binary data to file
  *
  * @param path path to file to be written to
- * @param data array of binary data to be written
+ * @param data pointer to binary data to be written
+ * @param size size of binary data to be written
  *
  * @return true if successful; false otherwise;
  */
-inline bool write_file( const char* path, std::vector<unsigned char> const& data )
+inline bool write_file( const char* path, void const* data, size_t size )
 {
     // open file
     FILE* const os = fopen( path, "wb" );
@@ -26,7 +27,7 @@ inline bool write_file( const char* path, std::vector<unsigned char> const& data
     }
 
     // write to file
-    if ( 1 != fwrite( data.data(), data.size(), 1, os ) ) {
+    if ( 1 != fwrite( data, size, 1, os ) ) {
         std::cerr << "ERROR: failed to write to file '" << path << "'" << std::endl;
         fclose( os );
         return false;
