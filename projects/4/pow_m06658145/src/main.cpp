@@ -111,47 +111,57 @@ int main( int argc, char const* argv[] )
 
         case OP::TARGET: {
 
+            // verify argument count
             if ( argc != 4 ) {
                 std::cerr << "ERROR: invalid argument count" << std::endl;
                 print_help( argv[0] );
                 return EXIT_FAILURE;
             }
 
+            // alias the arguments
             char const* const difficulty       = argv[2];
             char const* const target_file_path = argv[3];
 
+            // convert input stirng argument to an integer
             int difficulty_int = boost::lexical_cast<int>( difficulty );
 
+            // perform the given operation
             return target_generation( difficulty_int, target_file_path );
         }
 
         case OP::SOLUTION: {
 
+            // verify argument count
             if ( argc != 5 ) {
                 std::cerr << "ERROR: invalid argument count" << std::endl;
                 print_help( argv[0] );
                 return EXIT_FAILURE;
             }
 
+            // alias the arguments
             char const* const input_file_path    = argv[2];
             char const* const target_file_path   = argv[3];
             char const* const solution_file_path = argv[4];
 
+            // perform the given operation
             return generate_solution( input_file_path, target_file_path, solution_file_path );
         }
 
         case OP::VERIFY: {
 
+            // verify argument count
             if ( argc != 5 ) {
                 std::cerr << "ERROR: invalid argument count" << std::endl;
                 print_help( argv[0] );
                 return EXIT_FAILURE;
             }
 
+            // alias the arguments
             char const* const input_file_path    = argv[2];
             char const* const target_file_path   = argv[3];
             char const* const solution_file_path = argv[4];
 
+            // perform the given operation
             return verify_solution( input_file_path, target_file_path, solution_file_path );
         }
 

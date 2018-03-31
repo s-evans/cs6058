@@ -8,12 +8,12 @@
 #include <stdlib.h>
 
 /**
- * @brief TODO
+ * @brief generate a target
  *
- * @param difficulty
- * @param target_file_path
+ * @param difficulty difficulty factor
+ * @param target_file_path output target file path
  *
- * @return 
+ * @return EXIT_FAILURE or EXIT_SUCCESS
  */
 inline int target_generation(
     int const difficulty,
