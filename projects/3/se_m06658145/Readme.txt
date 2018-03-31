@@ -1,6 +1,6 @@
 # COMPILATION #
 
-The following commands are used to build the aes and test tools.
+The following commands are used to build the searchable encryption and test tools.
 
 $ cd build
 $ cmake -G 'Unix Makefiles' ..
@@ -8,7 +8,7 @@ $ make -j
 
 # EXECUTTION #
 
-The following examples are provided for running the aes tool.
+The following examples are provided for running the searchable encryption tool.
 
 $ ./se keygen <prf_key_file_path> <aes_key_file_path>
 $ ./se enc <prf_key_file_path> <aes_key_file_path> <index_file_path> <plaintext_dir_path> <ciphertext_dir_path>
