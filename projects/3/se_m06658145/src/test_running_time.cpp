@@ -161,6 +161,7 @@ int main( int argc, const char* argv[] )
     // set the number of iterations
     constexpr unsigned int const ITERATIONS = 100;
 
+    // set the parameters for the test
     char const aes_key_file[]   = "aes_key.bin";
     char const prf_key_file[]   = "prf_key.bin";
     char const index_file[]     = "index.bin";
