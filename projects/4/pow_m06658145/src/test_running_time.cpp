@@ -1,3 +1,5 @@
+#include "generate_solution.h"
+#include "target_generation.h"
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
@@ -104,21 +106,28 @@ static void test_running_time( unsigned int const iterations, T const& f )
     output_stats( results );
 }
 
-void test_encrypt_time(
+void test_solution_generation_running_time(
     unsigned int const iterations,
-    char const* const prf_key_file,
-    char const* const aes_key_file,
-    char const* const index_file,
-    char const* const plaintext_dir,
-    char const* const ciphertext_dir )
+    unsigned int const difficulty,
+    char const* const target_file_path,
+    char const* const input_file_path,
+    char const* const solution_file_path )
 {
-    std::cout << "running encrypted index generation timing test" << std::endl;
+    std::cout << "running solution generation running time test" << std::endl;
+    std::cout << "\tdifficulty = " << difficulty << std::endl;
+
+    // generate target file for the given difficulty
+    if ( EXIT_SUCCESS != target_generation( difficulty, target_file_path ) ) {
+        std::cerr << "ERROR: failed to generate target file" << std::endl;
+        return;
+    }
 
     // run test iterations
     test_running_time(
         iterations,
         [&]() {
-            // TODO: implement
+            // generate a solution for the given input and target
+            generate_solution( input_file_path, target_file_path, solution_file_path );
         }
     );
 }
@@ -126,9 +135,23 @@ void test_encrypt_time(
 int main( int argc, const char* argv[] )
 {
     // set the number of iterations
-    constexpr unsigned int const ITERATIONS = 100;
+    constexpr unsigned int const ITERATIONS = 10;
 
-    // TODO: implement
+    // set file path parameters
+    char const* const target_file_path   = "../data/target.txt";
+    char const* const input_file_path    = "../data/input.txt";
+    char const* const solution_file_path = "../data/solution.txt";
+
+    // run multiple iterations of the test at increasing levels of difficulty
+    for ( unsigned int difficulty = 21 ; difficulty <= 26 ; ++difficulty ) {
+        test_solution_generation_running_time(
+            ITERATIONS,
+            difficulty,
+            target_file_path,
+            input_file_path,
+            solution_file_path
+        );
+    }
 
     return EXIT_SUCCESS;
 }
