@@ -74,7 +74,7 @@ static void print_help( char const* const exe )
 {
     std::cerr << "\n";
     std::cerr << "Overview:\n";
-    std::cerr << "\tperforms 256-bit AES key generation, encryption, and decryption\n";
+    std::cerr << "\tperforms searchable encryption on files and provides encrypted file search functionality\n";
     std::cerr << "\n";
 
     std::cerr << "Synopsis:\n";
@@ -126,8 +126,8 @@ int main( int argc, char const* argv[] )
             }
 
             // get string pointers for arguments
-            char const* const aes_key_file = argv[2];
-            char const* const prf_key_file = argv[3];
+            char const* const prf_key_file = argv[2];
+            char const* const aes_key_file = argv[3];
 
             return keygen_to_file( aes_key_file, prf_key_file );
         }
@@ -170,7 +170,7 @@ int main( int argc, char const* argv[] )
             char const* const prf_key_file  = argv[3];
             char const* const token_file    = argv[4];
 
-            return add_token_to_file( token_keyword, prf_key_file, token_file );
+            return add_token_to_file( token_keyword, prf_key_file, token_file, std::cout );
         }
 
         case OP::SEARCH: {

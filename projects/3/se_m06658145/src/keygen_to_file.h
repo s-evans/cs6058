@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 /**
- * @brief Generate a an aes key to an output file
+ * @brief Generate an aes and prf key to output files
  *
  * @param aes_key_file path to output aes key file
  * @param prf_key_file path to output prf key file

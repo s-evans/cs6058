@@ -21,6 +21,7 @@
  * @param token_file path to token file
  * @param ciphertext_dir path to ciphertext directory
  * @param aes_key_file path to the aes key file
+ * @param output output stream for search results
  *
  * @return EXIT_FAILURE or EXIT_SUCCESS
  */
@@ -64,29 +65,25 @@ inline int search_token(
     // alias for the token file data
     auto const& token_data = token_file_data.second;
 
+    // verify size of prf token read from file
+    if ( token_data.size() != 16 ) {
+        std::cerr << "ERROR: invalid token size (" << token_data.size() << " != 16)" << std::endl;
+        return EXIT_FAILURE;
+    }
+
     // deserialize the index data structure from the index data buffer
     auto const index = deserialize( index_vector );
 
     // create a container of distinct file paths
     std::set<boost::filesystem::path> matching_files;
 
-    // iterate over input tokens
-    for ( auto itr = token_data.begin() ; itr != token_data.end() ; itr += 16 ) {
+    // get the prf token from the input data
+    auto const prf_token = reinterpret_cast<std::array<unsigned char, 16> const*>( token_data.data() );
 
-        // verify enough space for a prf token
-        if ( token_data.end() - itr < 16 ) {
-            break;
-        }
-
-        // get the prf token from the input data
-        std::array<unsigned char, 16> prf_token;
-        std::copy( itr, itr + 16, prf_token.begin() );
-
-        // iterate over matching files
-        for ( auto file = index.lower_bound( prf_token ) ; file != index.upper_bound( prf_token ) ; ++file ) {
-            // add the matching files to the set
-            matching_files.insert( file->second );
-        }
+    // iterate over matching files
+    for ( auto file = index.lower_bound( *prf_token ) ; file != index.upper_bound( *prf_token ) ; ++file ) {
+        // add the matching files to the set
+        matching_files.insert( file->second );
     }
 
     // output space delimited filenames on the cli

@@ -3,7 +3,6 @@
 #include "keygen_to_file.h"
 #include "search_token.h"
 #include <algorithm>
-#include <boost/filesystem.hpp>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -179,11 +178,9 @@ int main( int argc, const char* argv[] )
     // perform input data encryption timing test
     test_encrypt_time( ITERATIONS, prf_key_file, aes_key_file, index_file, plaintext_dir, ciphertext_dir );
 
-    // ensure token file does not exist
-    boost::filesystem::remove( token_file );
-
     // create token file
-    if ( EXIT_SUCCESS != add_token_to_file( search_token, prf_key_file, token_file ) ) {
+    std::ostringstream oss;
+    if ( EXIT_SUCCESS != add_token_to_file( search_token, prf_key_file, token_file, oss ) ) {
         std::cerr << "failed to create token file" << std::endl;
         return EXIT_FAILURE;
     }
