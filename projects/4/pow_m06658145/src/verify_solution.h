@@ -12,13 +12,15 @@
  * @param input_file_path path to the input data file
  * @param target_file_path path to the target data file
  * @param solution_file_path path to the solution data file
+ * @param output output stream
  *
  * @return EXIT_SUCCESS or EXIT_FAILURE
  */
 inline int verify_solution(
     char const* const input_file_path,
     char const* const target_file_path,
-    char const* const solution_file_path )
+    char const* const solution_file_path,
+    std::ostream& output )
 {
     // read input from file
     auto const input_file_data = read_file( input_file_path );
@@ -68,11 +70,11 @@ inline int verify_solution(
 
     // compare hash and target (target < hash)
     if ( std::lexicographical_compare( target.begin(), target.end(), hash.begin(), hash.end() ) ) {
-        std::cout << "0" << std::endl;
+        output << "0\n";
         return EXIT_FAILURE;
     }
 
-    std::cout << "1" << std::endl;
+    output << "1\n";
 
     return EXIT_SUCCESS;
 }

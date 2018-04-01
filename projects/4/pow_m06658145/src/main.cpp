@@ -68,7 +68,7 @@ static void print_help( char const* const exe )
 {
     std::cerr << "\n";
     std::cerr << "Overview:\n";
-    std::cerr << "\tperforms 256-bit AES key generation, encryption, and decryption\n";
+    std::cerr << "\tgenerate targets and solutions, and verify possible solutions for proof of work\n";
     std::cerr << "\n";
 
     std::cerr << "Synopsis:\n";
@@ -162,7 +162,7 @@ int main( int argc, char const* argv[] )
             char const* const solution_file_path = argv[4];
 
             // perform the given operation
-            return verify_solution( input_file_path, target_file_path, solution_file_path );
+            return verify_solution( input_file_path, target_file_path, solution_file_path, std::cout );
         }
 
         default: {
