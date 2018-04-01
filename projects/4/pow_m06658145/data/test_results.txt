@@ -1,0 +1,84 @@
+running solution generation running time test
+ difficulty = 21
+
+run time test parameters
+ iterations         = 10
+
+run time test results
+ min run time      =       1552 ms
+ max run time      =      65950 ms
+ mean run time     =      25265 ms
+ run time variance =          0 ms
+ median run time   =      24770 ms
+ total run time    =     252651 ms
+
+running solution generation running time test
+ difficulty = 22
+
+run time test parameters
+ iterations         = 10
+
+run time test results
+ min run time      =       1255 ms
+ max run time      =      83319 ms
+ mean run time     =      31916 ms
+ run time variance =          0 ms
+ median run time   =      31892 ms
+ total run time    =     319166 ms
+
+running solution generation running time test
+ difficulty = 23
+
+run time test parameters
+ iterations         = 10
+
+run time test results
+ min run time      =       1969 ms
+ max run time      =     222784 ms
+ mean run time     =      70585 ms
+ run time variance =          0 ms
+ median run time   =      59102 ms
+ total run time    =     705854 ms
+
+running solution generation running time test
+ difficulty = 24
+
+run time test parameters
+ iterations         = 10
+
+run time test results
+ min run time      =       3401 ms
+ max run time      =     337083 ms
+ mean run time     =     113663 ms
+ run time variance =          0 ms
+ median run time   =     109873 ms
+ total run time    =    1136637 ms
+
+running solution generation running time test
+ difficulty = 25
+
+run time test parameters
+ iterations         = 10
+
+run time test results
+ min run time      =     147240 ms
+ max run time      =     811434 ms
+ mean run time     =     360175 ms
+ run time variance =          0 ms
+ median run time   =     389793 ms
+ total run time    =    3601757 ms
+
+running solution generation running time test
+ difficulty = 26
+
+run time test parameters
+ iterations         = 10
+
+run time test results
+ min run time      =      65977 ms
+ max run time      =    2486194 ms
+ mean run time     =    1116859 ms
+ run time variance =          0 ms
+ median run time   =    1318544 ms
+ total run time    =   11168598 ms
+

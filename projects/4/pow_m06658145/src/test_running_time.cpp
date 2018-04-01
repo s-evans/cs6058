@@ -30,19 +30,19 @@ static void output_stats( std::vector<std::chrono::high_resolution_clock::durati
     std::sort( results.begin(), results.end() );
 
     // calculate stats
-    const auto min    = std::chrono::duration_cast<std::chrono::nanoseconds>( results[0] ).count();
-    const auto max    = std::chrono::duration_cast<std::chrono::nanoseconds>( results[results.size() - 1] ).count();
-    const auto total  = std::chrono::duration_cast<std::chrono::nanoseconds>( total_runtime ).count();
-    const auto mean   = std::chrono::duration_cast<std::chrono::nanoseconds>( total_runtime / results.size() ).count();;
+    const auto min    = std::chrono::duration_cast<std::chrono::milliseconds>( results[0] ).count();
+    const auto max    = std::chrono::duration_cast<std::chrono::milliseconds>( results[results.size() - 1] ).count();
+    const auto total  = std::chrono::duration_cast<std::chrono::milliseconds>( total_runtime ).count();
+    const auto mean   = std::chrono::duration_cast<std::chrono::milliseconds>( total_runtime / results.size() ).count();;
 
     // calculate the median
-    const auto median = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    const auto median = std::chrono::duration_cast<std::chrono::milliseconds>(
         ( results.size() % 1 ) ?
         results[results.size() / 2 + 1] :
         ( results[results.size() / 2] + results[results.size() / 2 + 1] ) / 2 ).count();
 
     // calculate the variance
-    const auto variance = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    const auto variance = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::accumulate(
             results.begin(),
             results.end(),
@@ -60,12 +60,12 @@ static void output_stats( std::vector<std::chrono::high_resolution_clock::durati
 
     // output results to the cli
     std::cout << "run time test results\n";
-    std::cout << " min run time      = " << std::setw( 10 ) << min      << " ns\n";
-    std::cout << " max run time      = " << std::setw( 10 ) << max      << " ns\n";
-    std::cout << " mean run time     = " << std::setw( 10 ) << mean     << " ns\n";
-    std::cout << " run time variance = " << std::setw( 10 ) << variance << " ns\n";
-    std::cout << " median run time   = " << std::setw( 10 ) << median   << " ns\n";
-    std::cout << " total run time    = " << std::setw( 10 ) << total    << " ns\n";
+    std::cout << " min run time      = " << std::setw( 10 ) << min      << " ms\n";
+    std::cout << " max run time      = " << std::setw( 10 ) << max      << " ms\n";
+    std::cout << " mean run time     = " << std::setw( 10 ) << mean     << " ms\n";
+    std::cout << " run time variance = " << std::setw( 10 ) << variance << " ms\n";
+    std::cout << " median run time   = " << std::setw( 10 ) << median   << " ms\n";
+    std::cout << " total run time    = " << std::setw( 10 ) << total    << " ms\n";
     std::cout << std::endl;
 }
 
@@ -114,7 +114,8 @@ void test_solution_generation_running_time(
     char const* const solution_file_path )
 {
     std::cout << "running solution generation running time test" << std::endl;
-    std::cout << "\tdifficulty = " << difficulty << std::endl;
+    std::cout << " difficulty = " << difficulty << std::endl;
+    std::cout << std::endl;
 
     // generate target file for the given difficulty
     if ( EXIT_SUCCESS != target_generation( difficulty, target_file_path ) ) {
